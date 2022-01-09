@@ -1,24 +1,33 @@
-
-
-
-from projects.dev.grad2grad.noise2noise import Noise2Noise
-from projects.dev.grad2grad.utils import plot_per_epoch
-from projects.dev.grad2grad.datasets import load_dataset
+from projects.grad2grad.noise2noise import Noise2Noise
+from projects.grad2grad.datasets import load_dataset
 from argparse import ArgumentParser
 
-import enoki as ek
-import mitsuba
-mitsuba.set_variant('gpu_autodiff_rgb')
+import os, sys
+my_lib_path = os.path.abspath('./')
+sys.path.append(my_lib_path)
+from classes.scene import *
+from classes.scene_rr import *
+from classes.camera import *
+from classes.visual import *
+from utils import *
+from cuda_utils import *
+import matplotlib.pyplot as plt
+# import matplotlib
+# matplotlib.use('Agg')
 
-from mitsuba.core import Thread, Vector3f
-from mitsuba.core.xml import load_file
-from mitsuba.python.util import traverse
-from mitsuba.python.autodiff import  write_bitmap
-from projects.dev.grad2grad.my_render import render_torch, G2G
-
+from classes.tensorboard_wrapper import TensorBoardWrapper
+import pickle
+from classes.checkpoint_wrapper import CheckpointWrapper
+from time import time
+from classes.optimizer import *
+from os.path import join
+import glob
+from tqdm import tqdm
+import json
+from scipy.sparse import csr_matrix
+cuda.select_device(0)
 
 import torch
-import time
 
 def parse_args():
     """Command-line argument parser for testing."""
@@ -27,12 +36,11 @@ def parse_args():
     parser = ArgumentParser(description='PyTorch implementation of Noise2Noise from Lehtinen et al. (2018)')
 
     # Data parameters
-    parser.add_argument('--ckpt-save-path', help='checkpoint save path', default='/home/roironen/mitsuba2/projects/dev/grad2grad/data/cbox/')
+    parser.add_argument('-v', '--valid-dir', help='test set path', default='/home/roironen/Path_Recycling/code/generated_data_noise2clean/val')
     parser.add_argument('--cuda', help='use cuda', action='store_false')
     parser.add_argument('-s', '--seed', help='fix random seed', type=int)
     parser.add_argument('-c', '--crop-size', help='random crop size', default=0, type=int)
     parser.add_argument('--image-size', help='image size', default=512, type=int)
-    parser.add_argument('--ckpt-overwrite', help='overwrite model checkpoint on save', action='store_true')
     parser.add_argument('-n', '--noise-type', help='noise type',
         choices=['mc'], default='mc', type=str)
 
@@ -44,83 +52,257 @@ if __name__ == '__main__':
 
     # Parse training parameters
     parse_params = parse_args()
-    Thread.thread().file_resolver().append('cbox')
-    scene = load_file('/home/roironen/mitsuba2/resources/data/docs/scenes/variants_cbox_rgb.xml')
-    # Find differentiable scene parameters
-    params = traverse(scene)
-    # Discard all parameters except for one we want to differentiate
-    params.keep(['red.reflectance.value', 'green.reflectance.value', 'white.reflectance.value'])
-    #params.keep(        ['red.reflectance.value', 'green.reflectance.value'])
-    # Print the current value and keep a backup copy
-    param_ref = []
-    for k, _ in params.properties.items():
-        param_ref.append(params[k].torch())
-    print(param_ref)
-    # Render a reference image (no derivatives used yet)
-    image_ref = render_torch(scene, spp=100)
-    crop_size = scene.sensors()[0].film().crop_size()
-    write_bitmap('/home/roironen/mitsuba2/projects/dev/grad2grad/test_output/out_ref.png', image_ref, crop_size)
+    files = [f for f in glob.glob(os.path.join(parse_params.valid_dir, '*.pkl'))]
 
+    ########################
+    # Atmosphere parameters#
+    ########################
+    sun_angles = np.array([180, 0]) * (np.pi / 180)
 
-    # Construct a PyTorch Adam optimizer that will adjust 'params_torch'
-    objective = torch.nn.MSELoss()
+    #####################
+    # Volume parameters #
+    #####################
+    # construct betas
+    with open(files[0], 'rb') as f:
+        x = pickle.load(f)
+    shape = x['shape']
+    beta_cloud = x['beta_gt'].toarray().reshape(shape)
+    beta_cloud = beta_cloud.astype(float_reg)
+
+    # Grid parameters #
+    # bounding box
+    voxel_size_x = 0.05
+    voxel_size_y = 0.05
+    voxel_size_z = 0.04
+    edge_x = voxel_size_x * beta_cloud.shape[0]
+    edge_y = voxel_size_y * beta_cloud.shape[1]
+    edge_z = voxel_size_z * beta_cloud.shape[2]
+    bbox = np.array([[0, edge_x],
+                     [0, edge_y],
+                     [0, edge_z]])
+
+    print(beta_cloud.shape)
+    print(bbox)
+
+    beta_air = 0.004
+    w0_air = 0.912
+    w0_cloud = 0.99
+    g_cloud = 0.85
+
+    #######################
+    # Cameras declaration #
+    #######################
+    height_factor = 2
+
+    focal_length = 10e-3
+    sensor_size = np.array((50e-3, 50e-3)) / height_factor
+    ps_max = 76
+
+    pixels = np.array((ps_max, ps_max))
+
+    N_cams = 9
+    cameras = []
+    volume_center = (bbox[:, 1] - bbox[:, 0]) / 2
+    R = height_factor * edge_z
+
+    cam_deg = 360 // (N_cams - 1)
+    for cam_ind in range(N_cams - 1):
+        theta = 29
+        theta_rad = theta * (np.pi / 180)
+        phi = (-(N_cams // 2) + cam_ind) * cam_deg
+        phi_rad = phi * (np.pi / 180)
+        t = R * theta_phi_to_direction(theta_rad, phi_rad) + volume_center
+        euler_angles = np.array((180 - theta, 0, phi - 90))
+        camera = Camera(t, euler_angles, focal_length, sensor_size, pixels)
+        cameras.append(camera)
+    t = R * theta_phi_to_direction(0, 0) + volume_center
+    euler_angles = np.array((180, 0, -90))
+    cameras.append(Camera(t, euler_angles, cameras[0].focal_length, cameras[0].sensor_size, cameras[0].pixels))
+
+    # mask parameters
+    image_threshold = 0.15
+    hit_threshold = 0.9
+    spp = 100000
+
+    # Simulation parameters
+    N_render_gt = 5
+    Np_gt = int(1e7)
+    # Np_gt *= N_render_gt
+
+    Np_max = int(1e6)
+    Np = Np_max
+
+    resample_freq = 1
+    step_size = 7e8
+    # Ns = 15
+    rr_depth = 20
+    rr_stop_prob = 0.05
+    iterations = 500
+    # to_mask = True
+    tensorboard = False
+    tensorboard_freq = 10
+    win_size = 100
 
     # Initialize trained model
     n2n = Noise2Noise(parse_params, trainable=False)
-    n2n.load_model('/home/roironen/mitsuba2/projects/dev/grad2grad/data/cbox/mc-1407/n2n-epoch24-0.00050.pt')
-    time_a = time.time()
-    spp = 5
-    iterations = 100
+    n2n.load_model('/home/roironen/Path_Recycling/code/projects/grad2grad/output/mc-1237/n2n-epoch100-0.14472.pt')
+    n2n.model.train(False)
+    device = torch.device("cuda") if n2n.use_cuda else torch.device("cpu")
     err = []
-    loss = []
-    for use_nn in [False, True]:
-        # Change all parameters initial value
-        for k, _ in params.properties.items():
-            params[k] = [.9, .9, .9]
-        params.update()
+    recon_loss = []
+    nn_err = []
+    nn_recon_loss = []
+    nn_time_list = []
+    noisy_time_list = []
+    err_Np_factor = []
+    recon_loss_Np_factor = []
+    noisy_Np_factor_time_list = []
+    for ind, file in enumerate(files):
+        with open(file, 'rb') as f:
+            x = pickle.load(f)
+        shape = x['shape']
+        beta_cloud = x['beta_gt'].toarray().reshape(shape)
+        beta_cloud = beta_cloud.astype(float_reg)
+        beta_max = beta_cloud.max()
 
-        # Which parameters should be exposed to the PyTorch optimizer?
-        params_torch = params.torch()
-        opt = torch.optim.Adam(params_torch.values(), lr=0.05)
+        # Declerations
+        grid = Grid(bbox, beta_cloud.shape)
+        volume = Volume(grid, beta_cloud, beta_air, w0_cloud, w0_air)
+        beta_gt = np.copy(beta_cloud)
+        scene_rr = SceneRR(volume, cameras, sun_angles, g_cloud, rr_depth, rr_stop_prob)
+        # visual = Visual_wrapper(scene_rr)
+        # visual.create_grid()
+        # visual.plot_cameras()
+        # visual.plot_medium()
+        # plt.show()
+        for i in range(N_render_gt):
+            cuda_paths = scene_rr.build_paths_list(Np_gt)
+            if i == 0:
+                I_gt = scene_rr.render(cuda_paths)
+            else:
+                I_gt += scene_rr.render(cuda_paths)
+        I_gt /= N_render_gt
+        cuda_paths = None
+        max_val = np.max(I_gt, axis=(1, 2))
+        # visual.plot_images(I_gt, "GT")
+        # plt.show()
+        del (cuda_paths)
+        print("Calculating Cloud Mask")
+        # cloud_mask = scene_rr.space_curving(I_gt, image_threshold=image_threshold, hit_threshold=hit_threshold, spp=spp)
+        cloud_mask = beta_cloud > 0.01
+        # mask_grader(cloud_mask, beta_gt>0.01, beta_gt)
+        scene_rr.set_cloud_mask(cloud_mask)
 
-        for it in range(iterations):
-            # Zero out gradients before each iteration
-            opt.zero_grad()
+        alpha = 0.9
+        beta1 = 0.9
+        beta2 = 0.999
+        # start_iter = -1
+        scaling_factor = 1.5
 
-            # Perform a differentiable rendering of the scene
-            image = render_torch(scene, params=params, unbiased=True,
-                                 spp=spp,**params_torch)
-            write_bitmap('/home/roironen/mitsuba2/projects/dev/grad2grad/test_output/noisy_out_%03i.png' % it, image, crop_size)
+        # optimizer = ADAM(volume,step_size, beta1, beta2, start_iter, beta_max, beta_max, 1)
+
+        ps = ps_max
+        r = 1 / np.sqrt(scaling_factor)
+        n = int(np.ceil(np.log(ps / ps_max) / np.log(r)))
+
+        I_gts = [I_gt]
+        pss = [ps_max]
+        I_gt = I_gts[0]
+        ps = pss[0]
+        print(pss)
+        scene_rr.upscale_cameras(ps)
+
+        # grad_norm = None
+        non_min_couter = 0
+        next_phase = False
+        min_loss = 1  #
+        upscaling_counter = 0
+
+        for use_nn, Np_factor in zip([False, False, True], [1, 10, 1]):
+            scene_rr.init_cuda_param(Np*Np_factor)
+            # optimizer = SGD(volume,step_size)
+            optimizer = MomentumSGD(volume, step_size, alpha, beta_max, beta_max)
+            # Initialization
+            beta_init = np.zeros_like(beta_cloud)
+            beta_init[volume.cloud_mask] = 2
+            volume.set_beta_cloud(beta_init)
+            beta_opt = volume.beta_cloud
+            loss = 1
+            start_loop = time()
+            grad = None
+            loss_list = []
+            rel_list = []
+            time_list = []
+            for it in range(iterations):
+                print(f"\niter {it}")
+                abs_dist = np.abs(beta_cloud[cloud_mask] - beta_opt[cloud_mask])
+                max_dist = np.max(abs_dist)
+                rel_dist1 = relative_distance(beta_cloud, beta_opt)
+
+                print(
+                    f"rel_dist1={rel_dist1}, loss={loss} max_dist={max_dist}, Np={Np*Np_factor:.2e}, ps={ps} counter={non_min_couter}")
+
+                print("RESAMPLING PATHS ")
+                start = time()
+                cuda_paths = scene_rr.build_paths_list(Np*Np_factor)
+                end = time()
+                print(f"building path list took: {end - start}")
+                # differentiable forward model
+                start1 = time()
+                I_opt, total_grad = scene_rr.render(cuda_paths, I_gt=I_gt)
+                total_grad *= (ps * ps)
+                end = time()
+                print(f"rendering took: {end - start1}")
+
+                dif = (I_opt - I_gt).reshape(1, 1, 1, N_cams, *scene_rr.pixels_shape)
+                # grad_norm = np.linalg.norm(total_grad)
+                if use_nn:
+                    mean = np.mean(total_grad)
+                    std = np.std(total_grad)
+                    total_grad = torch.tensor((total_grad-mean)/std, device=device, requires_grad=False)[None, None]
+                    total_grad = n2n.model(total_grad)
+                    total_grad = total_grad * std + mean
+                    total_grad = torch.squeeze(total_grad).to("cpu").detach().numpy()
+                # start1 = time()
+                optimizer.step(total_grad)
+                time_list.append(time() - start)
+
+                print("gradient step took:",time()-start1)
+                loss = 0.5 * np.sum(dif * dif)
+                loss_list.append(loss)
+                rel_list.append(rel_dist1)
             if use_nn:
-                image = n2n.test(image)
-            # image[:150, :, :] = 0
-            # image[151:, :, :] = 0
-            # image_ref1 = image_ref
-            # image_ref1[:150, :, :] = 0
-            # image_ref1[151:, :, :] = 0
-            write_bitmap('/home/roironen/mitsuba2/projects/dev/grad2grad/test_output/clean_out_%03i.png' % it, image, crop_size)
-            # Objective: MSE between 'image' and 'image_ref'
-            ob_val = objective(image, image_ref)
-            # ob_val.register_hook(lambda grad: print(grad))
-            # image.register_hook(lambda grad: print(grad))
-            # Back-propagate errors to input parameters
+                nn_err.append(np.array(rel_list))
+                nn_recon_loss.append(np.array(loss_list))
+                nn_time_list.append(time_list)
 
-            ob_val.backward()
+            else:
+                if Np_factor==1:
+                    err.append(np.array(rel_list))
+                    recon_loss.append(np.array(loss_list))
+                    noisy_time_list.append(time_list)
+                else:
+                    err_Np_factor.append(np.array(rel_list))
+                    recon_loss_Np_factor.append(np.array(loss_list))
+                    noisy_Np_factor_time_list.append(time_list)
+        print("MC rel_dist1={} | MC HR rel_dist1={} | NN + MC rel_dist1={}".format(err[-1][-1],err_Np_factor[-1][-1],nn_err[-1][-1]))
+        plt.plot(err[-1])
+        plt.plot(err_Np_factor[-1])
+        plt.plot(nn_err[-1])
 
-            # Optimizer: take a gradient step
-            opt.step()
-            loss.append(ob_val.item())
-            # Compare iterate against ground-truth value
-            total_err = 0
-            print('Iteration %03i:' % it, end ="")
-            for i, (k, v) in enumerate(params_torch.items()):
-                err_ref = objective(v, param_ref[i]).item()
-                print(' |%s error=%g|' % (k, err_ref), end ="")
-                total_err+=err_ref
-            print(' |total error=%g| loss=%g' % (total_err, ob_val.item()))
-            err.append(total_err)
+        plt.legend(['noisy', 'clean', 'NN denoiser'])
+        plt.xlabel("Iterations")
+        plt.ylabel("Relative error")
+        plt.savefig(join("/home/roironen/Path_Recycling/code/projects/grad2grad/test_results", "cloud{}_iterations".format(ind)), bbox_inches='tight')
+        plt.close()
 
-    time_b = time.time()
-    plot_per_epoch('/home/roironen/mitsuba2/projects/dev/grad2grad/test_output/', 'Errors', [loss[:iterations], err[:iterations], loss[iterations:], err[iterations:]], ['L2 loss - measurements', 'L2 loss - parameters','NN L2 loss - measurements', 'NN L2 loss - parameters'], 'log')
-    print()
-    print('%f ms per iteration' % (((time_b - time_a) * 1000) / iterations))
+        plt.plot(np.cumsum(noisy_time_list[-1]), err[-1])
+        plt.plot(np.cumsum(noisy_Np_factor_time_list[-1]), err_Np_factor[-1])
+        plt.plot(np.cumsum(nn_time_list[-1]), nn_err[-1])
+
+        plt.legend(['noisy', 'clean', 'denoiser'])
+        plt.xlabel("Time [sec]")
+        plt.ylabel("Relative error")
+        plt.savefig(join("/home/roironen/Path_Recycling/code/projects/grad2grad/test_results",
+                         "cloud{}_time".format(ind)), bbox_inches='tight')
+        plt.close()

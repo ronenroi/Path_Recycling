@@ -5,8 +5,8 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam, lr_scheduler
 
-from projects.dev.grad2grad.unet import UNet
-from projects.dev.grad2grad.utils import *
+from projects.grad2grad.unet import UNet
+from projects.grad2grad.grad_utils import *
 from torch.utils.tensorboard import SummaryWriter
 
 import os
@@ -24,12 +24,13 @@ class Noise2Noise(object):
         self._compile()
         # Create directory for model checkpoints, if none existent
         ckpt_dir_name = f'{datetime.now():{self.p.noise_type}-%H%M}'
-        if self.p.ckpt_overwrite:
-            ckpt_dir_name = self.p.noise_type
-
-        self.ckpt_dir = os.path.join(self.p.ckpt_save_path, ckpt_dir_name)
 
         if trainable:
+            if self.p.ckpt_overwrite:
+                ckpt_dir_name = self.p.noise_type
+
+            self.ckpt_dir = os.path.join(self.p.ckpt_save_path, ckpt_dir_name)
+
             if not os.path.isdir(self.p.ckpt_save_path):
                 os.mkdir(self.p.ckpt_save_path)
             if not os.path.isdir(self.ckpt_dir):
@@ -44,7 +45,7 @@ class Noise2Noise(object):
         print('Noise2Noise: Learning Image Restoration without Clean Data (Lethinen et al., 2018)')
 
         # Model
-        self.model = UNet(in_channels=3)
+        self.model = UNet(in_channels=1)
 
         # Set optimizer and loss, if in training mode
         if self.trainable:
@@ -193,7 +194,7 @@ class Noise2Noise(object):
 
             # Compute PSRN
             #source_denoised = reinhard_tonemap(source_denoised)
-            source_denoised[source_denoised < 0] = 0
+            # source_denoised[source_denoised < 0] = 0
             # TODO: Find a way to offload to GPU, and deal with uneven batch sizes
             for i in range(self.p.batch_size):
                 source_denoised = source_denoised.cpu()
@@ -218,7 +219,7 @@ class Noise2Noise(object):
 
         # Dictionaries of tracked stats
         stats = {'noise_type': self.p.noise_type,
-                 'noise_param': self.p.noise_param,
+                 # 'noise_param': self.p.noise_param,
                  'train_loss': [],
                  'valid_loss': [],
                  'valid_psnr': []}
