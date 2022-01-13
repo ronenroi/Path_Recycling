@@ -36,7 +36,7 @@ def parse_args():
     parser = ArgumentParser(description='PyTorch implementation of Noise2Noise from Lehtinen et al. (2018)')
 
     # Data parameters
-    parser.add_argument('-v', '--valid-dir', help='test set path', default='/home/roironen/Path_Recycling/code/generated_data_noise2clean/val')
+    parser.add_argument('-v', '--valid-dir', help='test set path', default='/home/roironen/Path_Recycling/code/generated_data_noise2clean/train')
     parser.add_argument('--cuda', help='use cuda', action='store_false')
     parser.add_argument('-s', '--seed', help='fix random seed', type=int)
     parser.add_argument('-c', '--crop-size', help='random crop size', default=0, type=int)
@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     # Parse training parameters
     parse_params = parse_args()
-    files = [f for f in glob.glob(os.path.join(parse_params.valid_dir, '*.pkl'))]
+    files = [f for f in glob.glob(os.path.join(parse_params.valid_dir, '*'))]
 
     ########################
     # Atmosphere parameters#
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     # Volume parameters #
     #####################
     # construct betas
-    with open(files[0], 'rb') as f:
+    with open(glob.glob(os.path.join(files[0], 'cloud_info.pkl'))[0], 'rb') as f:
         x = pickle.load(f)
     shape = x['shape']
     beta_cloud = x['beta_gt'].toarray().reshape(shape)
@@ -143,22 +143,21 @@ if __name__ == '__main__':
     tensorboard_freq = 10
     win_size = 100
 
-    # Initialize trained model
-    n2n = Noise2Noise(parse_params, trainable=False)
-    n2n.load_model('/home/roironen/Path_Recycling/code/projects/grad2grad/output/mc-1237/n2n-epoch100-0.14472.pt')
-    n2n.model.train(False)
-    device = torch.device("cuda") if n2n.use_cuda else torch.device("cpu")
+
     err = []
     recon_loss = []
     nn_err = []
     nn_recon_loss = []
     nn_time_list = []
+    nn_hr_err = []
+    nn_hr_recon_loss = []
+    nn_hr_time_list = []
     noisy_time_list = []
     err_Np_factor = []
     recon_loss_Np_factor = []
     noisy_Np_factor_time_list = []
     for ind, file in enumerate(files):
-        with open(file, 'rb') as f:
+        with open(glob.glob(os.path.join(file, 'cloud_info.pkl'))[0], 'rb') as f:
             x = pickle.load(f)
         shape = x['shape']
         beta_cloud = x['beta_gt'].toarray().reshape(shape)
@@ -218,7 +217,21 @@ if __name__ == '__main__':
         min_loss = 1  #
         upscaling_counter = 0
 
-        for use_nn, Np_factor in zip([False, False, True], [1, 10, 1]):
+        for use_nn, Np_factor in zip([False, False, True, True], [1, 10, 0.1, 1]):
+            # Initialize trained model
+            if use_nn:
+                if Np_factor == 0.1:
+                    n2n = Noise2Noise(parse_params, trainable=False)
+                    n2n.load_model(
+                    '/home/roironen/Path_Recycling/code/projects/grad2grad/output/mc-1546-low_res/n2n-epoch100-0.13552.pt')
+
+                else:
+                    n2n = Noise2Noise(parse_params, trainable=False)
+                    n2n.load_model(
+                    '/home/roironen/Path_Recycling/code/projects/grad2grad/output/mc-2314-high_res/n2n-epoch100-0.14233.pt')
+                n2n.model.train(False)
+                device = torch.device("cuda") if n2n.use_cuda else torch.device("cpu")
+
             scene_rr.init_cuda_param(Np*Np_factor)
             # optimizer = SGD(volume,step_size)
             optimizer = MomentumSGD(volume, step_size, alpha, beta_max, beta_max)
@@ -240,11 +253,11 @@ if __name__ == '__main__':
                 rel_dist1 = relative_distance(beta_cloud, beta_opt)
 
                 print(
-                    f"rel_dist1={rel_dist1}, loss={loss} max_dist={max_dist}, Np={Np*Np_factor:.2e}, ps={ps} counter={non_min_couter}")
+                    f"rel_dist1={rel_dist1}, loss={loss} max_dist={max_dist}, Np={int(Np*Np_factor):.2e}, ps={ps} counter={non_min_couter}")
 
                 print("RESAMPLING PATHS ")
                 start = time()
-                cuda_paths = scene_rr.build_paths_list(Np*Np_factor)
+                cuda_paths = scene_rr.build_paths_list(int(Np*Np_factor))
                 end = time()
                 print(f"building path list took: {end - start}")
                 # differentiable forward model
@@ -272,9 +285,14 @@ if __name__ == '__main__':
                 loss_list.append(loss)
                 rel_list.append(rel_dist1)
             if use_nn:
-                nn_err.append(np.array(rel_list))
-                nn_recon_loss.append(np.array(loss_list))
-                nn_time_list.append(time_list)
+                if Np_factor == 0.1:
+                    nn_err.append(np.array(rel_list))
+                    nn_recon_loss.append(np.array(loss_list))
+                    nn_time_list.append(time_list)
+                else:
+                    nn_hr_err.append(np.array(rel_list))
+                    nn_hr_recon_loss.append(np.array(loss_list))
+                    nn_hr_time_list.append(time_list)
 
             else:
                 if Np_factor==1:
@@ -285,12 +303,13 @@ if __name__ == '__main__':
                     err_Np_factor.append(np.array(rel_list))
                     recon_loss_Np_factor.append(np.array(loss_list))
                     noisy_Np_factor_time_list.append(time_list)
-        print("MC rel_dist1={} | MC HR rel_dist1={} | NN + MC rel_dist1={}".format(err[-1][-1],err_Np_factor[-1][-1],nn_err[-1][-1]))
+        print("MC rel_dist1={} | MC HR rel_dist1={} | NN + MC x10 rel_dist1={} | NN + MC x100 rel_dist1={}".format(err[-1][-1],err_Np_factor[-1][-1],nn_hr_err[-1][-1],nn_err[-1][-1]))
         plt.plot(err[-1])
         plt.plot(err_Np_factor[-1])
+        plt.plot(nn_hr_err[-1])
         plt.plot(nn_err[-1])
 
-        plt.legend(['noisy', 'clean', 'NN denoiser'])
+        plt.legend(['noisy', 'clean', 'NN denoiser x10', 'NN denoiser x100'])
         plt.xlabel("Iterations")
         plt.ylabel("Relative error")
         plt.savefig(join("/home/roironen/Path_Recycling/code/projects/grad2grad/test_results", "cloud{}_iterations".format(ind)), bbox_inches='tight')
@@ -298,11 +317,12 @@ if __name__ == '__main__':
 
         plt.plot(np.cumsum(noisy_time_list[-1]), err[-1])
         plt.plot(np.cumsum(noisy_Np_factor_time_list[-1]), err_Np_factor[-1])
+        plt.plot(np.cumsum(nn_hr_time_list[-1]), nn_hr_err[-1])
         plt.plot(np.cumsum(nn_time_list[-1]), nn_err[-1])
 
-        plt.legend(['noisy', 'clean', 'denoiser'])
+        plt.legend(['noisy', 'clean', 'NN denoiser x10', 'NN denoiser x100'])
         plt.xlabel("Time [sec]")
         plt.ylabel("Relative error")
-        plt.savefig(join("/home/roironen/Path_Recycling/code/projects/grad2grad/test_results",
+        plt.savefig(join("/home/roironen/Path_Recycling/code/projects/grad2grad/test_results_trainset",
                          "cloud{}_time".format(ind)), bbox_inches='tight')
         plt.close()

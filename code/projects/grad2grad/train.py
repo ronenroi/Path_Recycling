@@ -18,14 +18,14 @@ def parse_args():
     parser.add_argument('-v', '--valid-dir', help='test set path', default='/home/roironen/Path_Recycling/code/generated_data_noise2clean/val')
     parser.add_argument('--ckpt-save-path', help='checkpoint save path', default='/home/roironen/Path_Recycling/code/projects/grad2grad/output')
     parser.add_argument('--ckpt-overwrite', help='overwrite model checkpoint on save', action='store_true')
-    parser.add_argument('--report-interval', help='batch report interval', default=2, type=int)
+    parser.add_argument('--report-interval', help='batch report interval', default=5, type=int)
     parser.add_argument('-ts', '--train-size', help='size of train dataset', type=int)
     parser.add_argument('-vs', '--valid-size', help='size of valid dataset', type=int)
 
     # Training hyperparameters
-    parser.add_argument('-lr', '--learning-rate', help='learning rate', default=0.0001, type=float)
+    parser.add_argument('-lr', '--learning-rate', help='learning rate', default=0.00001, type=float)
     parser.add_argument('-a', '--adam', help='adam parameters', nargs='+', default=[0.9, 0.99, 1e-8], type=list)
-    parser.add_argument('-b', '--batch-size', help='minibatch size', default=5, type=int)
+    parser.add_argument('-b', '--batch-size', help='minibatch size', default=10, type=int)
     parser.add_argument('-w', '--num-workers', help='num workers', default=4, type=int)
 
     parser.add_argument('-e', '--nb-epochs', help='number of epochs', default=100, type=int)

@@ -116,7 +116,7 @@ class MonteCarloDataset(AbstractDataset):
 
         # Rendered images directories
         self.root_dir = root_dir
-        self.files = [f for f in glob.glob(os.path.join(root_dir, '*.pkl'))]
+        self.files = [f for f in glob.glob(os.path.join(root_dir, 'cloud*'))]
         # self.params = [f for f in glob.glob(os.path.join(root_dir, '*params*'))]
 
         if redux:
@@ -129,11 +129,18 @@ class MonteCarloDataset(AbstractDataset):
         # Use converged image, if requested
         iter = np.random.randint(100)
         fname = self.files[index]
-        with open(fname, 'rb') as f:
+        with open(glob.glob(os.path.join(fname, 'cloud_info.pkl'))[0], 'rb') as f:
             x = pickle.load(f)
         shape = x['shape']
-        grad1 = x['total_grad_it_{}_noise'.format(iter)].toarray()
-        grad2 = x['total_grad_it_{}_clean'.format(iter)].toarray()
+        noisy_path = glob.glob(os.path.join(fname, 'total_grad_it_{}_Np_1000000_*.pkl'.format(iter)))[0]
+        with open(noisy_path, 'rb') as f:
+            grad1 = pickle.load(f).toarray()
+        clean_path = glob.glob(os.path.join(fname, 'total_grad_it_{}_Np_10000000_*.pkl'.format(iter)))
+        clean_path = clean_path[np.random.randint(len(clean_path))]
+        with open(clean_path, 'rb') as f:
+            grad2 = pickle.load(f).toarray()
+        # grad1 = x['total_grad_it_{}_noise'.format(iter)].toarray()
+        # grad2 = x['total_grad_it_{}_clean'.format(iter)].toarray()
 
         mean1 = np.mean(grad1)
         std1 = np.std(grad1)

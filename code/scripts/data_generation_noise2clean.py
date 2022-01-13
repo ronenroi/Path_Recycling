@@ -33,7 +33,7 @@ sun_angles = np.array([180, 0]) * (np.pi / 180)
 # construct betas
 data_dir = "/home/roironen/pytorch3d/projects/CT/data/CASS_50m_256x256x139_600CCN/lwcs_processed"
 files = glob.glob(join(data_dir,"*.npz"))
-N_cloud = 500
+N_cloud = 110
 
 beta_cloud = np.load(files[0])['lwc']
 beta_cloud = beta_cloud.astype(float_reg)
@@ -110,14 +110,14 @@ step_size = 7e8
 # Ns = 15
 rr_depth = 20
 rr_stop_prob = 0.05
-iterations = 100
+iterations = 800
 # to_mask = True
 tensorboard = False
 tensorboard_freq = 10
 win_size = 100
 
 i_cloud = 0
-is_continue = True
+is_continue = False
 for file in files:
     if i_cloud >= N_cloud:
         break
@@ -255,7 +255,7 @@ for file in files:
 
         print(f"rel_dist1={rel_dist1}, loss={loss} max_dist={max_dist}, Np={Np:.2e}, ps={ps} counter={non_min_couter}")
 
-        for i, Np_factor in enumerate([0.1]):
+        for i, Np_factor in enumerate([1, 10]):
             if is_continue:
                 i += 6
             scene_rr.init_cuda_param(Np)
