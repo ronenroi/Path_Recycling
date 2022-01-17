@@ -878,5 +878,77 @@ class SceneRR(object):
         return text
 
 
+import ctypes
+import torch
+import numpy as np
+class PytorchSceneRR(SceneRR):
+    def __init__(self, volume: Volume, cameras, sun_angles, g_cloud, rr_depth, rr_stop_prob, device):
+        super(PytorchSceneRR, self).__init__(volume,cameras,sun_angles,g_cloud,rr_depth,rr_stop_prob)
+        self.device = device
 
+    def render(self, cuda_paths, I_gt=None, to_print=False, to_torch=False):
+        # east declerations
+        Np_nonan = self.Np_nonan
+        N_cams = len(self.cameras)
+        pixels_shape = self.cameras[0].pixels
+        beta_air = self.volume.beta_air
+        w0_cloud = self.volume.w0_cloud
+        w0_air = self.volume.w0_air
+        g_cloud = self.g_cloud
+        self.init_cuda_param(Np_nonan)
+        threadsperblock = self.threadsperblock
+        blockspergrid = self.blockspergrid
+        self.dbeta_cloud.copy_to_device(self.volume.beta_cloud)
+        self.dI_total.copy_to_device(np.zeros((N_cams, pixels_shape[0], pixels_shape[1]), dtype=float_reg))
+        start = time()
 
+        # dpath_contrib = cuda.to_device(np.empty((self.N_cams, self.total_num_of_scatter), dtype=float_reg))
+
+        # dcounter = cuda.to_device(np.zeros(1, dtype=int))
+        self.render_cuda[blockspergrid, threadsperblock] \
+            (self.dbeta_cloud, self.dbeta_zero, beta_air, g_cloud, w0_cloud, w0_air, self.dbbox, self.dbbox_size,
+             self.dvoxel_size, N_cams, self.dts, self.dPs, self.dpixels_shape, self.dis_in_medium, *cuda_paths,self.dI_total,
+             self.dpath_contrib)
+
+        cuda.synchronize()
+        # print("voxel counter",dcounter.copy_to_host())
+
+        I_total = self.dI_total.copy_to_host()
+        I_total /= self.Np
+        if to_print:
+            print("render_cuda took:",time() - start)
+        # return I_total
+        if I_gt is None:
+            # del dpath_contrib
+            return I_total
+
+        ##### differentiable part ####
+        self.dtotal_grad.copy_to_device(np.zeros_like(self.volume.beta_cloud, dtype=float_reg))
+        # precalculating gradient contributions
+        I_dif = (I_total - I_gt).astype(float_reg)
+        self.dI_total.copy_to_device(I_dif)
+        # dgrad_contrib = cuda.to_device(np.zeros(self.total_num_of_scatter, dtype=float_reg))
+        start = time()
+        self.calc_gradient_contribution[blockspergrid, threadsperblock]\
+            (cuda_paths[1], self.dpath_contrib, self.dI_total, self.dPs, self.dpixels_shape,cuda_paths[2], self.dgrad_contrib)
+
+        cuda.synchronize()
+        if to_print:
+            print("calc_gradient_contribution took:",time()-start)
+        start = time()
+        self.render_differentiable_cuda[blockspergrid, threadsperblock]\
+            (self.dbeta_cloud, beta_air, g_cloud, w0_cloud, w0_air, self.dbbox, self.dbbox_size, self.dvoxel_size,
+                                       N_cams, self.dts, self.dPs, self.dpixels_shape, self.dis_in_medium, *cuda_paths, self.dI_total, self.dpath_contrib,
+             self.dgrad_contrib, self.dcloud_mask, self.dtotal_grad)
+
+        cuda.synchronize()
+        if to_print:
+            print("render_differentiable_cuda took:", time() - start)
+
+        if to_torch:
+            total_grad = torch.as_tensor(self.dtotal_grad, device=self.device)
+        else:
+            total_grad = self.dtotal_grad.copy_to_host()
+
+        total_grad /= (self.Np * N_cams)
+        return I_total, total_grad
