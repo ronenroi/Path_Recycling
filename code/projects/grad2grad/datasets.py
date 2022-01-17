@@ -29,20 +29,20 @@ def load_dataset(root_dir, redux, params, shuffled=False, single=False):
     # Create Torch dataset
 
     # Instantiate appropriate dataset class
-    dataset = MonteCarloDataset(root_dir, redux)
+    dataset = MonteCarloDataset(root_dir, redux, params.min_iter, params.max_iter)
 
 
     # Use batch size of 1, if requested (e.g. test set)
     if single:
         return DataLoader(dataset, batch_size=1, shuffle=shuffled)
     else:
-            return DataLoader(dataset, num_workers=params.num_workers, batch_size=params.batch_size, shuffle=shuffled)
+        return DataLoader(dataset, num_workers=params.num_workers, batch_size=params.batch_size, shuffle=shuffled)
 
 
 class AbstractDataset(Dataset):
     """Abstract dataset class for Noise2Noise."""
 
-    def __init__(self, root_dir, redux=0):
+    def __init__(self, root_dir, redux=0, min_iter=0, max_iter=100):
         """Initializes abstract dataset."""
 
         super(AbstractDataset, self).__init__()
@@ -109,7 +109,7 @@ class AbstractDataset(Dataset):
 class MonteCarloDataset(AbstractDataset):
     """Class for dealing with Monte Carlo rendered images."""
 
-    def __init__(self, root_dir, redux):
+    def __init__(self, root_dir, redux, min_iter=0, max_iter=100):
         """Initializes Monte Carlo image dataset."""
 
         super(MonteCarloDataset, self).__init__(root_dir, redux)
@@ -118,7 +118,8 @@ class MonteCarloDataset(AbstractDataset):
         self.root_dir = root_dir
         self.files = [f for f in glob.glob(os.path.join(root_dir, 'cloud*'))]
         # self.params = [f for f in glob.glob(os.path.join(root_dir, '*params*'))]
-
+        self.min_iter = min_iter
+        self.max_iter = max_iter
         if redux:
             self.files = self.files[:redux]
 
@@ -127,7 +128,7 @@ class MonteCarloDataset(AbstractDataset):
         """Retrieves image from folder and corrupts it."""
 
         # Use converged image, if requested
-        iter = np.random.randint(100)
+        iter = np.random.randint(self.min_iter, self.max_iter)
         fname = self.files[index]
         with open(glob.glob(os.path.join(fname, 'cloud_info.pkl'))[0], 'rb') as f:
             x = pickle.load(f)

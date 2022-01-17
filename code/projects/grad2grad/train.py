@@ -1,11 +1,11 @@
-
 import torch
 import torch.nn as nn
 
+from cuda_utils import *
 from projects.grad2grad.noise2noise import Noise2Noise
 from projects.grad2grad.datasets import load_dataset
 from argparse import ArgumentParser
-
+cuda.select_device(0)
 
 def parse_args():
     """Command-line argument parser for training."""
@@ -19,8 +19,12 @@ def parse_args():
     parser.add_argument('--ckpt-save-path', help='checkpoint save path', default='/home/roironen/Path_Recycling/code/projects/grad2grad/output')
     parser.add_argument('--ckpt-overwrite', help='overwrite model checkpoint on save', action='store_true')
     parser.add_argument('--report-interval', help='batch report interval', default=5, type=int)
-    parser.add_argument('-ts', '--train-size', help='size of train dataset', type=int)
-    parser.add_argument('-vs', '--valid-size', help='size of valid dataset', type=int)
+    parser.add_argument('-ts', '--train-size', help='size of train dataset', default=-1, type=int)
+    parser.add_argument('-vs', '--valid-size', help='size of valid dataset', default=-1, type=int)
+    parser.add_argument('-min_iter',  help='minimum gradint itertaion step', default=0, type=int)
+    parser.add_argument('-max_iter', help='max gradint itertaion step', default=100, type=int)
+    parser.add_argument('-net', help='network type', default='UNET', type=str)
+
 
     # Training hyperparameters
     parser.add_argument('-lr', '--learning-rate', help='learning rate', default=0.00001, type=float)

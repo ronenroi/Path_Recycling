@@ -6,6 +6,7 @@ import torch.nn as nn
 from torch.optim import Adam, lr_scheduler
 
 from projects.grad2grad.unet import UNet
+from projects.grad2grad.linear import Linear
 from projects.grad2grad.grad_utils import *
 from torch.utils.tensorboard import SummaryWriter
 
@@ -20,6 +21,7 @@ class Noise2Noise(object):
         """Initializes model."""
 
         self.p = params
+        self.net = params.net
         self.trainable = trainable
         self._compile()
         # Create directory for model checkpoints, if none existent
@@ -45,7 +47,10 @@ class Noise2Noise(object):
         print('Noise2Noise: Learning Image Restoration without Clean Data (Lethinen et al., 2018)')
 
         # Model
-        self.model = UNet(in_channels=1)
+        if self.net == 'UNET':
+            self.model = UNet(in_channels=1)
+        elif self.net == 'Linear':
+            self.model = Linear(size=32*64*64)
 
         # Set optimizer and loss, if in training mode
         if self.trainable:
@@ -196,9 +201,9 @@ class Noise2Noise(object):
             #source_denoised = reinhard_tonemap(source_denoised)
             # source_denoised[source_denoised < 0] = 0
             # TODO: Find a way to offload to GPU, and deal with uneven batch sizes
-            for i in range(self.p.batch_size):
-                source_denoised = source_denoised.cpu()
-                target = target.cpu()
+            source_denoised = source_denoised.cpu()
+            target = target.cpu()
+            for i in range(source_denoised.shape[0]):
                 psnr_meter.update(psnr(source_denoised[i], target[i]).item())
 
         valid_loss = loss_meter.avg
