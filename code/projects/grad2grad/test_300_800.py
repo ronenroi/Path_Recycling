@@ -25,11 +25,10 @@ import glob
 from tqdm import tqdm
 import json
 from scipy.sparse import csr_matrix
-# cuda.select_device(0)
+cuda.select_device(0)
 
 import torch
-# os.environ['NUMBAPRO_LIBDEVICE']='/usr/lib/nvidia-cuda-toolkit/libdevice/'
-# os.environ['NUMBAPRO_NVVM']='/usr/lib/x86_64-linux-gnu/libnvvm.so.3.1.0'
+
 def parse_args():
     """Command-line argument parser for testing."""
 
@@ -136,7 +135,7 @@ if __name__ == '__main__':
     Np = Np_max
 
     resample_freq = 1
-    step_size = 7e8
+    step_size = 1#7e8
     # Ns = 15
     rr_depth = 20
     rr_stop_prob = 0.05
@@ -147,111 +146,149 @@ if __name__ == '__main__':
     win_size = 100
     n2n = Noise2Noise(parse_params, trainable=False)
     n2n.load_model(
-        '/home/roironen/Path_Recycling/code/projects/grad2grad/output/mc-2353-iter-300-500/n2n-epoch100-0.13313.pt')
+        '/home/roironen/Path_Recycling/code/projects/grad2grad/output/mc-1028/n2n-epoch1049--0.53621.pt')
     n2n.model.train(False)
     device = torch.device("cuda") if n2n.use_cuda else torch.device("cpu")
+    print(f"Device={device}")
+    err = []
+    recon_loss = []
+    nn_err = []
+    nn_recon_loss = []
+    nn_time_list = []
+    nn_hr_err = []
+    nn_hr_recon_loss = []
+    nn_hr_time_list = []
+    noisy_time_list = []
+    err_Np_factor = []
+    recon_loss_Np_factor = []
+    noisy_Np_factor_time_list = []
+    for ind, file in enumerate(files):
+        with open(glob.glob(os.path.join(file, 'cloud_info.pkl'))[0], 'rb') as f:
+            x = pickle.load(f)
+        shape = x['shape']
+        beta_cloud = x['beta_gt'].toarray().reshape(shape)
+        beta_cloud = beta_cloud.astype(float_reg)
+        beta_max = beta_cloud.max()
 
-    file = files[0]
-    with open(glob.glob(os.path.join(file, 'cloud_info.pkl'))[0], 'rb') as f:
-        x = pickle.load(f)
-    shape = x['shape']
-    beta_cloud = x['beta_gt'].toarray().reshape(shape)
-    beta_cloud = beta_cloud.astype(float_reg)
-    beta_max = beta_cloud.max()
+        # Declerations
+        grid = Grid(bbox, beta_cloud.shape)
+        volume = Volume(grid, beta_cloud, beta_air, w0_cloud, w0_air)
+        beta_gt = np.copy(beta_cloud)
+        scene_rr = PytorchSceneRR(volume, cameras, sun_angles, g_cloud, rr_depth, rr_stop_prob,device=device)
+        # visual = Visual_wrapper(scene_rr)
+        # visual.create_grid()
+        # visual.plot_cameras()
+        # visual.plot_medium()
+        # plt.show()
+        for i in range(N_render_gt):
+            cuda_paths = scene_rr.build_paths_list(Np_gt)
+            if i == 0:
+                I_gt = scene_rr.render(cuda_paths)
+            else:
+                I_gt += scene_rr.render(cuda_paths)
+        I_gt /= N_render_gt
+        cuda_paths = None
+        max_val = np.max(I_gt, axis=(1, 2))
+        # visual.plot_images(I_gt, "GT")
+        # plt.show()
+        del (cuda_paths)
+        print("Calculating Cloud Mask")
+        # cloud_mask = scene_rr.space_curving(I_gt, image_threshold=image_threshold, hit_threshold=hit_threshold, spp=spp)
+        cloud_mask = beta_cloud > 0.01
+        # mask_grader(cloud_mask, beta_gt>0.01, beta_gt)
+        scene_rr.set_cloud_mask(cloud_mask)
 
-    # Declerations
-    grid = Grid(bbox, beta_cloud.shape)
-    volume = Volume(grid, beta_cloud, beta_air, w0_cloud, w0_air)
-    beta_gt = np.copy(beta_cloud)
-    scene_rr = PytorchSceneRR(volume, cameras, sun_angles, g_cloud, rr_depth, rr_stop_prob)
-    # visual = Visual_wrapper(scene_rr)
-    # visual.create_grid()
-    # visual.plot_cameras()
-    # visual.plot_medium()
-    # plt.show()
-    for i in range(N_render_gt):
-        cuda_paths = scene_rr.build_paths_list(Np_gt)
-        if i == 0:
-            I_gt = scene_rr.render(cuda_paths)
-        else:
-            I_gt += scene_rr.render(cuda_paths)
-    I_gt /= N_render_gt
-    cuda_paths = None
-    max_val = np.max(I_gt, axis=(1, 2))
-    # visual.plot_images(I_gt, "GT")
-    # plt.show()
-    del (cuda_paths)
-    print("Calculating Cloud Mask")
-    # cloud_mask = scene_rr.space_curving(I_gt, image_threshold=image_threshold, hit_threshold=hit_threshold, spp=spp)
-    cloud_mask = beta_cloud > 0.01
-    # mask_grader(cloud_mask, beta_gt>0.01, beta_gt)
-    scene_rr.set_cloud_mask(cloud_mask)
+        alpha = 0.9
+        beta1 = 0.9
+        beta2 = 0.999
+        start_iter = -1
+        scaling_factor = 1.5
 
-    alpha = 0.9
-    beta1 = 0.9
-    beta2 = 0.999
-    # start_iter = -1
-    scaling_factor = 1.5
 
-    # optimizer = ADAM(volume,step_size, beta1, beta2, start_iter, beta_max, beta_max, 1)
+        ps = ps_max
+        r = 1 / np.sqrt(scaling_factor)
+        n = int(np.ceil(np.log(ps / ps_max) / np.log(r)))
 
-    ps = ps_max
-    r = 1 / np.sqrt(scaling_factor)
-    n = int(np.ceil(np.log(ps / ps_max) / np.log(r)))
+        I_gts = [I_gt]
+        pss = [ps_max]
+        I_gt = I_gts[0]
+        ps = pss[0]
+        print(pss)
+        scene_rr.upscale_cameras(ps)
 
-    I_gts = [I_gt]
-    pss = [ps_max]
-    I_gt = I_gts[0]
-    ps = pss[0]
-    print(pss)
-    scene_rr.upscale_cameras(ps)
+        # grad_norm = None
+        non_min_couter = 0
+        next_phase = False
+        min_loss = 1  #
+        upscaling_counter = 0
+        for use_nn, Np_factor in zip([False, False, True], [1, 5, 1]):
+            to_torch = False
+            # Initialize trained model
+            scene_rr.init_cuda_param(Np*Np_factor)
+            # optimizer = SGD(volume,step_size)
+            # optimizer = MomentumSGD(volume, step_size, alpha, beta_max, beta_max)
+            optimizer = ADAM(volume,step_size, beta1, beta2,start_iter , beta_max, beta_max, 1)
 
-    # grad_norm = None
-    non_min_couter = 0
-    next_phase = False
-    min_loss = 1  #
-    upscaling_counter = 0
-    # Initialize trained model
-    scene_rr.init_cuda_param(Np)
-    beta_init = np.zeros_like(beta_cloud)
-    beta_init[volume.cloud_mask] = 2
-    volume.set_beta_cloud(beta_init)
-    beta_opt = volume.beta_cloud
-    start_loop = time()
-    grad = None
-    for it in range(iterations):
-        print(f"\niter {it}")
+            # Initialization
+            beta_init = np.zeros_like(beta_cloud)
+            beta_init[volume.cloud_mask] = 2
+            volume.set_beta_cloud(beta_init)
+            beta_opt = volume.beta_cloud
+            loss = 1
+            start_loop = time()
+            grad = None
+            loss_list = []
+            rel_list = []
+            time_list = []
+            total_time = 0
+            for it in range(iterations):
+                print(f"\niter {it}")
+                abs_dist = np.abs(beta_cloud[cloud_mask] - beta_opt[cloud_mask])
+                max_dist = np.max(abs_dist)
+                rel_dist1 = relative_distance(beta_cloud, beta_opt)
 
-        print("RESAMPLING PATHS ")
-        start = time()
-        cuda_paths = scene_rr.build_paths_list(int(Np))
-        end = time()
-        print(f"building path list took: {end - start}")
-        # differentiable forward model
-        start1 = time()
-        I_opt, total_grad = scene_rr.render(cuda_paths, I_gt=I_gt)
-        total_grad *= (ps * ps)
-        end = time()
-        print(f"rendering took: {end - start1}")
+                print(
+                    f"rel_dist1={rel_dist1}, loss={loss} max_dist={max_dist}, Np={int(Np*Np_factor):.2e}, ps={ps}, time={total_time}")
 
-        dif = (I_opt - I_gt).reshape(1, 1, 1, N_cams, *scene_rr.pixels_shape)
-        # grad_norm = np.linalg.norm(total_grad)
-        mean = torch.mean(total_grad)
-        std = torch.std(total_grad)
-        total_grad = (total_grad-mean)/std[None, None]
-        total_grad = n2n.model(total_grad)
-        total_grad = total_grad * std + mean
-        total_grad = torch.squeeze(total_grad).to("cpu").detach().numpy()
-        # start1 = time()
-        optimizer.step(total_grad)
-        time_list.append(time() - start)
-        total_time += time_list[-1]
-        print("gradient step took:",time()-start1)
-        loss = 0.5 * np.sum(dif * dif)
-        loss_list.append(loss)
-        rel_list.append(rel_dist1)
-        if total_time > 500:
-            break
+                print("RESAMPLING PATHS ")
+                start = time()
+                cuda_paths = scene_rr.build_paths_list(int(Np*Np_factor))
+                end = time()
+                print(f"building path list took: {end - start}")
+                # differentiable forward model
+                start1 = time()
+                if use_nn and it>=300:
+                    to_torch = True
+                I_opt, total_grad = scene_rr.render(cuda_paths, I_gt=I_gt, to_torch=to_torch)
+                total_grad *= (ps * ps)
+                end = time()
+                print(f"rendering took: {end - start1}")
+
+                dif = (I_opt - I_gt).reshape(1, 1, 1, N_cams, *scene_rr.pixels_shape)
+                # grad_norm = np.linalg.norm(total_grad)
+                if use_nn and it>=300:
+                    # mean = torch.mean(total_grad)
+                    # std = torch.std(total_grad)
+                    # total_grad = (total_grad-mean)/std
+                    scale = 1e-12#torch.linalg.norm(total_grad.view(-1), ord=2) / torch.sum(total_grad != 0)
+                    grad_norm = torch.linalg.norm(total_grad.view(-1), ord=2)
+                    total_grad /= scale
+                    total_grad = n2n.model(total_grad[None, None])
+                    # total_grad = total_grad * std + mean
+                    total_grad *= scale
+                    total_grad /= torch.linalg.norm(total_grad.view(-1), ord=2)
+                    total_grad *= grad_norm
+                    total_grad = torch.squeeze(total_grad).to("cpu").detach().numpy()
+                # start1 = time()
+                optimizer.step(total_grad)
+                time_list.append(time() - start)
+                total_time += time_list[-1]
+                print("gradient step took:",time()-start1)
+                loss = 0.5 * np.sum(dif * dif)
+                loss_list.append(loss)
+                rel_list.append(rel_dist1)
+                if total_time > 300:
+                    break
             if use_nn:
                 nn_err.append(np.array(rel_list))
                 nn_recon_loss.append(np.array(loss_list))
@@ -301,6 +338,7 @@ if __name__ == '__main__':
         plt.legend(['noisy', 'clean', 'NN denoiser x10'])
         plt.xlabel("Iterations")
         plt.ylabel("L2 loss")
+        plt.yscale('log')
         plt.savefig(
             join("/home/roironen/Path_Recycling/code/test_results/test_results", "loss_cloud{}_iterations".format(ind)),
             bbox_inches='tight')
@@ -313,6 +351,7 @@ if __name__ == '__main__':
         plt.legend(['noisy', 'clean', 'NN denoiser x10'])
         plt.xlabel("Time [sec]")
         plt.ylabel("L2 loss")
+        plt.yscale('log')
         plt.savefig(join("/home/roironen/Path_Recycling/code/test_results/test_results",
                          "loss_cloud{}_time".format(ind)), bbox_inches='tight')
         plt.close()

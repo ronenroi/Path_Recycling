@@ -352,7 +352,7 @@ class SceneAirMSPI(object):
                         attenuation *= cloud_prob * w0_cloud + (1-cloud_prob) * w0_air
                     else:
                         attenuation = 1
-                        if not in_medium: # find sea collision
+                        # if not in_medium: # find sea collision
 
                     if seg >= rr_depth:
                         attenuation *= rr_factor

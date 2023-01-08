@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from cuda_utils import *
 from projects.grad2grad.noise2noise import Noise2Noise
-from projects.grad2grad.datasets import load_dataset
+from projects.grad2grad.datasets import load_dataset, load_simple_dataset
 from argparse import ArgumentParser
 cuda.select_device(0)
 
@@ -14,25 +14,25 @@ def parse_args():
     parser = ArgumentParser(description='PyTorch implementation of Noise2Noise from Lehtinen et al. (2018)')
 
     # Data parameters
-    parser.add_argument('-t', '--train-dir', help='training set path', default='/home/roironen/Path_Recycling/code/data/3D_generated_data_noise2clean/train')
-    parser.add_argument('-v', '--valid-dir', help='test set path', default='/home/roironen/Path_Recycling/code/data/3D_generated_data_noise2clean/val')
-    parser.add_argument('--ckpt-save-path', help='checkpoint save path', default='/home/roironen/Path_Recycling/code/projects/3D_NN_output')
+    parser.add_argument('-t', '--train-dir', help='training set path', default='/home/roironen/Path_Recycling/code/1D_generated_data_noise2clean/train')
+    parser.add_argument('-v', '--valid-dir', help='test set path', default='/home/roironen/Path_Recycling/code/1D_generated_data_noise2clean/val')
+    parser.add_argument('--ckpt-save-path', help='checkpoint save path', default='/home/roironen/Path_Recycling/code/projects/1D_NN_output')
     parser.add_argument('--ckpt-overwrite', help='overwrite model checkpoint on save', action='store_true')
-    parser.add_argument('--report-interval', help='batch report interval', default=1, type=int)
+    parser.add_argument('--report-interval', help='batch report interval', default=10, type=int)
     parser.add_argument('-ts', '--train-size', help='size of train dataset', default=-1, type=int)
     parser.add_argument('-vs', '--valid-size', help='size of valid dataset', default=-1, type=int)
     parser.add_argument('--min_iter',  help='minimum gradint itertaion step', default=0, type=int)
-    parser.add_argument('--max_iter', help='max gradint itertaion step', default=200, type=int)
-    parser.add_argument('--net', help='network type', default='UNET2', type=str)
+    parser.add_argument('--max_iter', help='max gradint itertaion step', default=100, type=int)
+    parser.add_argument('--net', help='network type', default='Linear', type=str)
 
 
     # Training hyperparameters
-    parser.add_argument('-lr', '--learning-rate', help='learning rate', default=0.01, type=float)
+    parser.add_argument('-lr', '--learning-rate', help='learning rate', default=0.0001, type=float)
     parser.add_argument('-a', '--adam', help='adam parameters', nargs='+', default=[0.9, 0.99, 1e-8], type=list)
-    parser.add_argument('-b', '--batch-size', help='minibatch size', default=7, type=int)
+    parser.add_argument('-b', '--batch-size', help='minibatch size', default=10, type=int)
     parser.add_argument('-w', '--num-workers', help='num workers', default=4, type=int)
 
-    parser.add_argument('-e', '--nb-epochs', help='number of epochs', default=1000, type=int)
+    parser.add_argument('-e', '--nb-epochs', help='number of epochs', default=5000, type=int)
     parser.add_argument('-l', '--loss', help='loss function', choices=['l1', 'l2', 'hdr','cos'], default='l2', type=str)
     parser.add_argument('--cuda', help='use cuda', action='store_false')
     parser.add_argument('--plot-stats', help='plot stats after every epoch', action='store_false')
@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument('-n', '--noise-type', help='noise type',
         choices=['mc'], default='mc', type=str)
     # parser.add_argument('-p', '--noise-param', help='noise parameter (e.g. std for gaussian)', default=50, type=float)
-    parser.add_argument('-s', '--seed', help='fix random seed', type=int)
+    # parser.add_argument('-s', '--seed', help='fix random seed', type=int)
     # parser.add_argument('-c', '--crop-size', help='random crop size', default=0, type=int)
     # parser.add_argument('--image-size', help='image size', default=512, type=int)
 
@@ -53,14 +53,15 @@ def parse_args():
 if __name__ == '__main__':
     """Trains Noise2Noise."""
     random = np.random.RandomState()
-
     # Parse training parameters
     params = parse_args()
 
     # Train/valid datasets
-    train_loader = load_dataset(params.train_dir, params.train_size, params, shuffled=True)
-    valid_loader = load_dataset(params.valid_dir, params.valid_size, params, shuffled=False)
+    train_loader = load_simple_dataset(params.train_dir, params.train_size, params, shuffled=True)
+    valid_loader = load_simple_dataset(params.valid_dir, params.valid_size, params, shuffled=False)
 
     # Initialize model and train
     n2n = Noise2Noise(params, trainable=True)
+    # n2n.load_model(
+    #     '/home/roironen/Path_Recycling/code/projects/1D_NN_output/mc-1245/n2n-epoch1900-0.00002.pt')
     n2n.train(train_loader, valid_loader)

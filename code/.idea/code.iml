@@ -3,8 +3,9 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/classes" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/generated_data" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.6 (py36) (3)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.6 (MC_pytorch)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">

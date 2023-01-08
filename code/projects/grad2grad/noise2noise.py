@@ -4,9 +4,10 @@
 import torch
 import torch.nn as nn
 from torch.optim import Adam, lr_scheduler
+import torch.nn.functional as F
 
-from projects.grad2grad.unet import UNet
-from projects.grad2grad.linear import Linear
+from projects.grad2grad.unet import *
+from projects.grad2grad.linear import Linear, LinearWeights
 from projects.grad2grad.grad_utils import *
 from torch.utils.tensorboard import SummaryWriter
 
@@ -48,9 +49,13 @@ class Noise2Noise(object):
 
         # Model
         if self.net == 'UNET':
-            self.model = UNet(in_channels=1)
+            self.model = UNet(in_channels=11)
+        elif self.net == 'UNET2':
+            self.model = UNet2(in_channels=11)
         elif self.net == 'Linear':
-            self.model = Linear(size=32*64*64)
+            self.model = Linear(size=32*10)#.double()
+        elif self.net == 'LinearWeights':
+            self.model = LinearWeights(size=32 * 10)
 
         # Set optimizer and loss, if in training mode
         if self.trainable:
@@ -68,6 +73,9 @@ class Noise2Noise(object):
                 self.loss = HDRLoss()
             elif self.p.loss == 'l2':
                 self.loss = nn.MSELoss()
+            elif self.p.loss == 'cos':
+                self.loss = CosineLoss()
+
             else:
                 self.loss = nn.L1Loss()
 
@@ -138,7 +146,7 @@ class Noise2Noise(object):
         # Evaluate model on validation set
         print('\rTesting model on validation set... ', end='')
         epoch_time = time_elapsed_since(epoch_start)[0]
-        valid_loss, valid_time, valid_psnr = self.eval(valid_loader)
+        valid_loss, valid_time, valid_psnr, naive_psnr = self.eval(valid_loader)
         show_on_epoch_end(epoch_time, valid_time, valid_loss, valid_psnr)
 
         # Decrease learning rate if plateau
@@ -148,13 +156,15 @@ class Noise2Noise(object):
         stats['train_loss'].append(train_loss)
         stats['valid_loss'].append(valid_loss)
         stats['valid_psnr'].append(valid_psnr)
-        self.save_model(epoch, stats, epoch == 0)
+        stats['naive_psnr'].append(naive_psnr)
+        if epoch % 10==0:
+            self.save_model(epoch, stats, epoch == 0)
 
         # Plot stats
         if self.p.plot_stats:
             loss_str = f'{self.p.loss.upper()} loss'
-            plot_per_epoch(self.ckpt_dir, loss_str, [stats['train_loss'], stats['valid_loss']], ['train_loss', 'valid_loss'])
-            plot_per_epoch(self.ckpt_dir, 'Valid PSNR', [stats['valid_psnr']], ['PSNR (dB)'])
+            plot_per_epoch(self.ckpt_dir, loss_str, [stats['train_loss'], stats['valid_loss']], ['train_loss', 'valid_loss'],yaxis='log')
+            plot_per_epoch(self.ckpt_dir, 'Valid PSNR (dB)', [stats['valid_psnr'], stats['naive_psnr']], ['Denoised', 'Naive Average'])
             self._writer.add_scalars('Loss', {'Train loss': train_loss,'Validation loss': valid_loss}, epoch)
             self._writer.add_scalar('Valid PSNR (dB)', valid_psnr, epoch)
             #self._writer.add_scalar('lr', self.scheduler._last_lr, epoch)
@@ -184,6 +194,8 @@ class Noise2Noise(object):
         valid_start = datetime.now()
         loss_meter = AvgMeter()
         psnr_meter = AvgMeter()
+        naive_solution_meter = AvgMeter()
+
 
         for batch_idx, (source, target) in enumerate(valid_loader):
             if self.use_cuda:
@@ -192,7 +204,7 @@ class Noise2Noise(object):
 
             # Denoise
             source_denoised = self.model(source)
-
+            averaged_source = torch.mean(source[:,1:,...],1)
             # Update loss
             loss = self.loss(source_denoised, target)
             loss_meter.update(loss.item())
@@ -203,14 +215,15 @@ class Noise2Noise(object):
             # TODO: Find a way to offload to GPU, and deal with uneven batch sizes
             source_denoised = source_denoised.cpu()
             target = target.cpu()
+            averaged_source = averaged_source.cpu()
             for i in range(source_denoised.shape[0]):
-                psnr_meter.update(psnr(source_denoised[i], target[i]).item())
-
+                psnr_meter.update(psnr(torch.squeeze(source_denoised[i]), torch.squeeze(target[i])).item())
+                naive_solution_meter.update(psnr(torch.squeeze(averaged_source[i]), torch.squeeze(target[i])).item())
         valid_loss = loss_meter.avg
         valid_time = time_elapsed_since(valid_start)[0]
         psnr_avg = psnr_meter.avg
-
-        return valid_loss, valid_time, psnr_avg
+        psnr_naive = naive_solution_meter.avg
+        return valid_loss, valid_time, psnr_avg, psnr_naive
 
 
     def train(self, train_loader, valid_loader):
@@ -227,7 +240,8 @@ class Noise2Noise(object):
                  # 'noise_param': self.p.noise_param,
                  'train_loss': [],
                  'valid_loss': [],
-                 'valid_psnr': []}
+                 'valid_psnr': [],
+                 'naive_psnr': []}
 
         # Main training loop
         train_start = datetime.now()
@@ -262,11 +276,11 @@ class Noise2Noise(object):
 
                 # Report/update statistics
                 time_meter.update(time_elapsed_since(batch_start)[1])
-                if (batch_idx + 1) % self.p.report_interval == 0 and batch_idx:
-                    show_on_report(batch_idx, num_batches, loss_meter.avg, time_meter.avg)
-                    train_loss_meter.update(loss_meter.avg)
-                    loss_meter.reset()
-                    time_meter.reset()
+                # if (batch_idx + 1) % self.p.report_interval == 0 and batch_idx:
+                show_on_report(batch_idx, num_batches, loss_meter.avg, time_meter.avg)
+                train_loss_meter.update(loss_meter.avg)
+                loss_meter.reset()
+                time_meter.reset()
 
             # Epoch end, save and reset tracker
             self._on_epoch_end(stats, train_loss_meter.avg, epoch, epoch_start, valid_loader)
@@ -291,3 +305,37 @@ class HDRLoss(nn.Module):
 
         loss = ((denoised - target) ** 2) / (denoised + self._eps) ** 2
         return torch.mean(loss.view(-1))
+
+
+
+class CosineLoss(nn.Module):
+    """High dynamic range loss."""
+
+    def __init__(self, eps=1e-10):
+        """Initializes loss with numerical stability epsilon."""
+
+        super(CosineLoss, self).__init__()
+        self._eps = eps
+
+
+    def forward(self, denoised, target):
+        # maximize average cosine similarity
+        batch_size = denoised.shape[0]
+        loss = -F.cosine_similarity(denoised.reshape(batch_size,-1), target.reshape(batch_size,-1), eps=self._eps).mean()
+        # loss = ((denoised - target) ** 2) / (denoised + self._eps) ** 2
+        return loss
+# def loss_func(feat1, feat2):
+#     # minimize average magnitude of cosine similarity
+#     return F.cosine_similarity(feat1, feat2).abs().mean()
+#
+# def loss_func(feat1, feat2):
+#     # minimize average cosine similarity
+#     return F.cosine_similarity(feat1, feat2).mean()
+#
+# def loss_func(feat1, feat2):
+#     # maximize average magnitude of cosine similarity
+#     return -F.cosine_similarity(feat1, feat2).abs().mean()
+#
+# def loss_func(feat1, feat2):
+#     # maximize average cosine similarity
+#     return -F.cosine_similarity(feat1, feat2).mean()

@@ -1,37 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="idocz@132.68.58.142:22" autoUploadExternalChanges="true">
+  <component name="PublishConfigData" serverName="roironen@132.68.58.242:22 (2)" autoUploadExternalChanges="true">
     <serverData>
-      <paths name="idocz@132.68.58.142:22">
+      <paths name="roironen@132.68.58.242:22 (2)">
         <serverdata>
           <mappings>
-            <mapping deploy="repos/3D_Graph_Renderer/code" local="$PROJECT_DIR$" web="/" />
-            <mapping local="" />
+            <mapping deploy="/home/roironen/Path_Recycling/code" local="$PROJECT_DIR$" />
           </mappings>
-        </serverdata>
-      </paths>
-      <paths name="idocz@132.68.58.152:22">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="idocz@132.68.58.155:22">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="odroid@10.0.0.6:22">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
-          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/generated_data_noise2clean" />
+            <excludedPath local="true" path="$PROJECT_DIR$/NN_output" />
+            <excludedPath local="true" path="$PROJECT_DIR$/test_results" />
+            <excludedPath local="true" path="$PROJECT_DIR$/projects/grad2grad/output" />
+          </excludedPaths>
         </serverdata>
       </paths>
     </serverData>
-    <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>

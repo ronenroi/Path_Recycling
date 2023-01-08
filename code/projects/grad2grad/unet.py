@@ -98,3 +98,131 @@ class UNet(nn.Module):
 
         # Final activation
         return self._block6(concat1)
+
+
+
+class UNet2(nn.Module):
+    """Custom U-Net architecture for Noise2Noise (see Appendix, Table 2)."""
+
+    def __init__(self, in_channels=1, out_channels=1):
+        """Initializes U-Net."""
+
+        super(UNet2, self).__init__()
+
+        # Layers: enc_conv0, enc_conv1, pool1
+        self._block1 = nn.Sequential(
+            nn.Conv3d(in_channels, 16, (3,3,13), stride=1, padding=(1,1,6)),
+            nn.ReLU(inplace=True),
+            nn.Conv3d(16, 48, (3,3,13), stride=1, padding=(1,1,6)),
+            nn.ReLU(inplace=True),
+            nn.MaxPool3d(2))
+
+        # Layers: enc_conv(i), pool(i); i=2..5
+        self._block2_0 = nn.Sequential(
+            nn.Conv3d(48, 48, (3,3,7), stride=1, padding=(1,1,3)),
+            nn.ReLU(inplace=True),
+            nn.MaxPool3d(2))
+
+        self._block2_1 = nn.Sequential(
+            nn.Conv3d(48, 48, (3,3,7), stride=1, padding=(1,1,3)),
+            nn.ReLU(inplace=True),
+            nn.MaxPool3d(2))
+
+        self._block2_2= nn.Sequential(
+            nn.Conv3d(48, 48, (3,3,7), stride=1, padding=(1,1,3)),
+            nn.ReLU(inplace=True),
+            nn.MaxPool3d(2))
+
+        self._block2_3 = nn.Sequential(
+            nn.Conv3d(48, 48, (3,3,7), stride=1, padding=(1,1,3)),
+            nn.ReLU(inplace=True),
+            nn.MaxPool3d(2))
+
+        # Layers: enc_conv6, upsample5
+        self._block3 = nn.Sequential(
+            nn.Conv3d(48, 48, (3,3,5), stride=1, padding=(1,1,2)),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose3d(48, 48,  3, stride=2, padding=1, output_padding=1)
+        )
+            #nn.Upsample(scale_factor=2, mode='nearest'))
+
+        # Layers: dec_conv5a, dec_conv5b, upsample4
+        self._block4 = nn.Sequential(
+            nn.Conv3d(96, 96, (3,3,5), stride=1, padding=(1,1,2)),
+            nn.ReLU(inplace=True),
+            nn.Conv3d(96, 96, (3,3,5), stride=1, padding=(1,1,2)),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose3d(96, 96,  3, stride=2, padding=1, output_padding=1)
+        )
+            #nn.Upsample(scale_factor=2, mode='nearest'))
+
+        # Layers: dec_deconv(i)a, dec_deconv(i)b, upsample(i-1); i=4..2
+        self._block5_0 = nn.Sequential(
+            nn.Conv3d(144, 96,(3,3,7), stride=1, padding=(1,1,3)),
+            nn.ReLU(inplace=True),
+            nn.Conv3d(96, 96,(3,3,7), stride=1, padding=(1,1,3)),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose3d(96, 96,  3, stride=2, padding=1, output_padding=1)
+        )
+        self._block5_1 = nn.Sequential(
+            nn.Conv3d(144, 96,(3,3,7), stride=1, padding=(1,1,3)),
+            nn.ReLU(inplace=True),
+            nn.Conv3d(96, 96,(3,3,7), stride=1, padding=(1,1,3)),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose3d(96, 96,  3, stride=2, padding=1, output_padding=1)
+        )
+        self._block5_2 = nn.Sequential(
+            nn.Conv3d(144, 96,(3,3,7), stride=1, padding=(1,1,3)),
+            nn.ReLU(inplace=True),
+            nn.Conv3d(96, 96,(3,3,7), stride=1, padding=(1,1,3)),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose3d(96, 96,  3, stride=2, padding=1, output_padding=1)
+        )
+            #nn.Upsample(scale_factor=2, mode='nearest'))
+
+        # Layers: dec_conv1a, dec_conv1b, dec_conv1c,
+        self._block6 = nn.Sequential(
+            nn.Conv3d(96 + in_channels, 64, (3,3,13), stride=1, padding=(1,1,6)),
+            nn.ReLU(inplace=True),
+            nn.Conv3d(64, 32, (3,3,13), stride=1, padding=(1,1,6)),
+            nn.ReLU(inplace=True),
+            nn.Conv3d(32, out_channels, (3,3,13), stride=1, padding=(1,1,6)),
+            nn.LeakyReLU(0.1))
+
+        # Initialize weights
+        self._init_weights()
+
+
+    def _init_weights(self):
+        """Initializes weights using He et al. (2015)."""
+
+        for m in self.modules():
+            if isinstance(m, nn.ConvTranspose3d) or isinstance(m, nn.Conv3d):
+                nn.init.kaiming_normal_(m.weight.data)
+                m.bias.data.zero_()
+
+
+    def forward(self, x):
+        """Through encoder, then decoder by adding U-skip connections. """
+
+        # Encoder
+        pool1 = self._block1(x)
+        pool2 = self._block2_0(pool1)
+        pool3 = self._block2_1(pool2)
+        pool4 = self._block2_2(pool3)
+        pool5 = self._block2_3(pool4)
+
+        # Decoder
+        upsample5 = self._block3(pool5)
+        concat5 = torch.cat((upsample5, pool4), dim=1)
+        upsample4 = self._block4(concat5)
+        concat4 = torch.cat((upsample4, pool3), dim=1)
+        upsample3 = self._block5_0(concat4)
+        concat3 = torch.cat((upsample3, pool2), dim=1)
+        upsample2 = self._block5_1(concat3)
+        concat2 = torch.cat((upsample2, pool1), dim=1)
+        upsample1 = self._block5_2(concat2)
+        concat1 = torch.cat((upsample1, x), dim=1)
+
+        # Final activation
+        return self._block6(concat1)
