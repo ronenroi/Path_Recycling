@@ -25,35 +25,19 @@
     </select>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="931b30af-17c0-4afd-9a89-169957dc129a" name="Default Changelist" comment="AirMSPI works!! another bottle of wine tonight :)">
-      <change afterPath="$PROJECT_DIR$/projects/Optimizer/optimizer_compare.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/projects/correlation/1D_compare_correlation.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/projects/correlation/1D_test_correlation.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/projects/grad2grad/1D_data_generation_noise2clean.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/projects/grad2grad/3D_data_generation_noise2clean.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/projects/grad2grad/compare_grads_noisy_vs_clean_toy.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/projects/grad2grad/compare_noisy_vs_clean.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/projects/grad2grad/simple_data_generation_noise2clean.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/projects/grad2grad/test_1D.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/projects/grad2grad/test_1D_fast_batching.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/projects/grad2grad/test_simple.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/projects/grad2grad/train_simple.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/code.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/code.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/deployment.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/deployment.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+    <list default="true" id="931b30af-17c0-4afd-9a89-169957dc129a" name="Default Changelist" comment="Add project CF_NeRF">
+      <change afterPath="$PROJECT_DIR$/projects/CF-NeRF/model/flow/flows.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/projects/CF-NeRF/model/flow/layers.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/projects/CF-NeRF/model/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/projects/CF-NeRF/model_cloud/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/projects/CF-NeRF/optimize_3D_RTE_Ido.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/projects/CF-NeRF/optimize_CF_Cloud_extinction.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/classes/optimizer.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/optimizer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/classes/scene_airmspi_periodic.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/scene_airmspi_periodic.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/classes/scene_rr.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/scene_rr.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/projects/grad2grad/datasets.py" beforeDir="false" afterPath="$PROJECT_DIR$/projects/grad2grad/datasets.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/projects/grad2grad/integrate_numba.py" beforeDir="false" afterPath="$PROJECT_DIR$/projects/grad2grad/3D_test_0_300.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/projects/grad2grad/linear.py" beforeDir="false" afterPath="$PROJECT_DIR$/projects/grad2grad/linear.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/projects/grad2grad/noise2noise.py" beforeDir="false" afterPath="$PROJECT_DIR$/projects/grad2grad/noise2noise.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/projects/grad2grad/test_300_500.py" beforeDir="false" afterPath="$PROJECT_DIR$/projects/grad2grad/test_300_800.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/projects/grad2grad/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/projects/grad2grad/train.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/projects/grad2grad/unet.py" beforeDir="false" afterPath="$PROJECT_DIR$/projects/grad2grad/unet.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/compare_noisy_vs_clean.py" beforeDir="false" afterPath="$PROJECT_DIR$/projects/cloud_rendering_vadim/cloud_rendering.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/data_generation_noise2clean.py" beforeDir="false" afterPath="$PROJECT_DIR$/projects/grad2grad/data_generation_noise2clean.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/projects/CF-NeRF/optimize_CF_Cloud_microphysics.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/projects/CF-NeRF/optimize_CF_Cloud_microphysics_toy.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/projects/CF-NeRF/run_nerf_helpers.py" beforeDir="false" afterPath="$PROJECT_DIR$/projects/CF-NeRF/run_nerf_helpers.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/projects/grad2grad/3D_test_0_300.py" beforeDir="false" afterPath="$PROJECT_DIR$/projects/grad2grad/3D_test_0_300.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -98,8 +82,8 @@
   </component>
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$USER_HOME$/miniconda3/envs/MC/lib/python3.7/site-packages/torch/_utils.py" root0="SKIP_INSPECTION" />
-    <setting file="file://$USER_HOME$/miniconda3/envs/MC/lib/python3.7/posixpath.py" root0="SKIP_INSPECTION" />
     <setting file="file://$USER_HOME$/miniconda3/envs/MC/lib/python3.7/site-packages/torch/utils/data/_utils/worker.py" root0="SKIP_INSPECTION" />
+    <setting file="file://$USER_HOME$/miniconda3/envs/MC/lib/python3.7/posixpath.py" root0="SKIP_INSPECTION" />
     <setting file="file://$USER_HOME$/miniconda3/envs/MC/lib/python3.7/site-packages/torch/utils/data/_utils/fetch.py" root0="SKIP_INSPECTION" />
   </component>
   <component name="ProjectId" id="1mHTQYVRwKXxgKXunP2VRENkCvf" />
@@ -117,7 +101,7 @@
     <property name="WebServerToolWindowPanel.toolwindow.show.date" value="false" />
     <property name="WebServerToolWindowPanel.toolwindow.show.permissions" value="false" />
     <property name="WebServerToolWindowPanel.toolwindow.show.size" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/projects/correlation" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/projects/CF-NeRF/optimize_CF_Cloud_microphysics_toy.py" />
     <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
@@ -133,11 +117,11 @@
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/projects/CF-NeRF" />
       <recent name="$PROJECT_DIR$/projects/correlation" />
       <recent name="$PROJECT_DIR$/projects/grad2grad" />
       <recent name="$PROJECT_DIR$/projects/Optimizer" />
       <recent name="$PROJECT_DIR$/projects" />
-      <recent name="$PROJECT_DIR$/projects/cloud_rendering_vadim" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/data/3D_generated_data_noise2clean/train" />
@@ -147,7 +131,7 @@
       <recent name="$PROJECT_DIR$/3D_generated_data_noise2clean/train" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.1D_test_correlation">
+  <component name="RunManager" selected="Python.optimize_CF_Cloud_extinction">
     <configuration name="1D_data_generation_noise2clean" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="code" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -184,6 +168,28 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/projects/correlation/1D_test_correlation.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="3D_test_0_300" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="code" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/projects/grad2grad" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/projects/grad2grad/3D_test_0_300.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="true" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -390,6 +396,25 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="optimize_CF_Cloud_extinction" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+      <module name="code" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/projects/CF-NeRF" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/projects/CF-NeRF/optimize_CF_Cloud_extinction.py" />
+      <option name="PARAMETERS" value="--log lwc_recover" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="scene_rr_new" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="code" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -404,28 +429,6 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/projects/Optimizer/scene_rr_new.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="true" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="test_1D" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="code" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/projects/grad2grad/test_1D.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="true" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -488,19 +491,20 @@
       <item itemvalue="Python.gpu_inverse_script" />
       <item itemvalue="Python.airmspi_img_comp" />
       <item itemvalue="Python.1D_test_correlation" />
+      <item itemvalue="Python.optimize_CF_Cloud_extinction" />
       <item itemvalue="Python.1D_data_generation_noise2clean" />
-      <item itemvalue="Python.test_1D" />
       <item itemvalue="Python.scene_rr_new" />
       <item itemvalue="Python.test_1D_fast_batching" />
       <item itemvalue="Python.test_correlation" />
+      <item itemvalue="Python.3D_test_0_300" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.3D_test_0_300" />
         <item itemvalue="Python.test_correlation" />
         <item itemvalue="Python.1D_data_generation_noise2clean" />
         <item itemvalue="Python.test_1D_fast_batching" />
         <item itemvalue="Python.scene_rr_new" />
-        <item itemvalue="Python.test_1D" />
       </list>
     </recent_temporary>
   </component>
@@ -615,6 +619,9 @@
       <workItem from="1671096157856" duration="3737000" />
       <workItem from="1671526385649" duration="620000" />
       <workItem from="1672135129803" duration="49000" />
+      <workItem from="1673172984127" duration="33339000" />
+      <workItem from="1673357621986" duration="12039000" />
+      <workItem from="1673445026955" duration="2030000" />
     </task>
     <task id="LOCAL-00001" summary="points changed from float32 to float64">
       <created>1609504613233</created>
@@ -861,7 +868,14 @@
       <option name="project" value="LOCAL" />
       <updated>1642438494797</updated>
     </task>
-    <option name="localTasksCounter" value="36" />
+    <task id="LOCAL-00036" summary="Add project CF_NeRF">
+      <created>1673173095241</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1673173095241</updated>
+    </task>
+    <option name="localTasksCounter" value="37" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -892,7 +906,6 @@
     <option name="oldMeFiltersMigrated" value="true" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="next goal: removing ISs_mat" />
     <MESSAGE value="comparing" />
     <MESSAGE value="small beta_air bug fixed. next goal: adding rayleigh" />
     <MESSAGE value="rayleigh added. need to check correctness" />
@@ -917,7 +930,8 @@
     <MESSAGE value="New data generation protocol" />
     <MESSAGE value="add pytorch support in scene renderer" />
     <MESSAGE value="update current files" />
-    <option name="LAST_COMMIT_MESSAGE" value="update current files" />
+    <MESSAGE value="Add project CF_NeRF" />
+    <option name="LAST_COMMIT_MESSAGE" value="Add project CF_NeRF" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -1182,7 +1196,50 @@
           <line>242</line>
           <option name="timeStamp" value="392" />
         </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="NONE" type="python-line">
+          <url>file://$PROJECT_DIR$/projects/CF-NeRF/optimize_CF_Cloud_extinction.py</url>
+          <line>15</line>
+          <log-expression expression="import torch.nn as nn" language="Python" />
+          <option name="timeStamp" value="393" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/classes/scene_rr.py</url>
+          <line>1288</line>
+          <option name="timeStamp" value="410" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/projects/CF-NeRF/optimize_CF_Cloud_extinction.py</url>
+          <line>225</line>
+          <option name="timeStamp" value="457" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/projects/CF-NeRF/optimize_CF_Cloud_extinction.py</url>
+          <line>2065</line>
+          <option name="timeStamp" value="460" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/projects/CF-NeRF/optimize_CF_Cloud_extinction.py</url>
+          <line>1732</line>
+          <option name="timeStamp" value="503" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/projects/CF-NeRF/model_cloud/models.py</url>
+          <line>355</line>
+          <option name="timeStamp" value="504" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/projects/CF-NeRF/optimize_CF_Cloud_extinction.py</url>
+          <line>1929</line>
+          <option name="timeStamp" value="505" />
+        </line-breakpoint>
       </breakpoints>
+      <default-breakpoints>
+        <breakpoint type="python-exception">
+          <properties notifyOnTerminate="true" exception="BaseException">
+            <option name="notifyOnTerminate" value="true" />
+          </properties>
+        </breakpoint>
+      </default-breakpoints>
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
@@ -1217,17 +1274,19 @@
     <SUITE FILE_PATH="coverage/code$cloud_evolving_new_views.coverage" NAME="cloud_evolving_new_views Coverage Results" MODIFIED="1620120325715" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/code$rr_render_jplext.coverage" NAME="rr_render_jplext Coverage Results" MODIFIED="1628066700353" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/code$test_1D_fast_batching.coverage" NAME="test_1D_fast_batching Coverage Results" MODIFIED="1652607892946" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/projects/grad2grad" />
-    <SUITE FILE_PATH="coverage/code$3D_test_0_300.coverage" NAME="3D_test_0_300 Coverage Results" MODIFIED="1644615518026" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/projects/grad2grad" />
+    <SUITE FILE_PATH="coverage/code$3D_test_0_300.coverage" NAME="3D_test_0_300 Coverage Results" MODIFIED="1673277667997" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/projects/grad2grad" />
     <SUITE FILE_PATH="coverage/code$scene_lowmem_gpu.coverage" NAME="scene_lowmem_gpu Coverage Results" MODIFIED="1614243411397" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/classes" />
     <SUITE FILE_PATH="coverage/code$space_curving_draft.coverage" NAME="space_curving_draft Coverage Results" MODIFIED="1610613269911" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/code$test_correlation.coverage" NAME="test_correlation Coverage Results" MODIFIED="1642332944857" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/projects/correlation" />
     <SUITE FILE_PATH="coverage/code$rotating_result.coverage" NAME="rotating_result Coverage Results" MODIFIED="1620221540138" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/code$train.coverage" NAME="train Coverage Results" MODIFIED="1644618245374" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/projects/grad2grad" />
+    <SUITE FILE_PATH="coverage/code$optimize_CF_Cloud_microphysics_toy.coverage" NAME="optimize_CF_Cloud_extinction Coverage Results" MODIFIED="1673356726919" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/projects/CF-NeRF" />
     <SUITE FILE_PATH="coverage/code$rr_render_cloud1.coverage" NAME="rr_render_cloud1 Coverage Results" MODIFIED="1627999787446" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/code$rel_dist_loss_plot.coverage" NAME="rel_dist_loss_plot Coverage Results" MODIFIED="1627554144131" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/code$camera_setting.coverage" NAME="camera_setting Coverage Results" MODIFIED="1630416715782" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/code$3D_data_generation_noise2clean.coverage" NAME="3D_data_generation_noise2clean Coverage Results" MODIFIED="1644243824702" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/projects/grad2grad" />
     <SUITE FILE_PATH="coverage/code$airmspi_background_finder.coverage" NAME="airmspi_background_finder Coverage Results" MODIFIED="1636879965253" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
+    <SUITE FILE_PATH="coverage/code$optimize_CF_Cloud_extinction.coverage" NAME="optimize_CF_Cloud_extinction Coverage Results" MODIFIED="1673439006027" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/projects/CF-NeRF" />
     <SUITE FILE_PATH="coverage/code$space_curving_gpu_draft.coverage" NAME="space_curving_gpu_draft Coverage Results" MODIFIED="1619964066333" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/code$1D_test_correlation.coverage" NAME="1D_test_correlation Coverage Results" MODIFIED="1671105267603" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/projects/correlation" />
     <SUITE FILE_PATH="coverage/code$confergence_figure_rerender.coverage" NAME="confergence_figure_rerender Coverage Results" MODIFIED="1630750927546" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />

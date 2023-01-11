@@ -4,7 +4,8 @@ from numba.cuda.random import create_xoroshiro128p_states, init_xoroshiro128p_st
 from cuda_utils import *
 from utils import relative_distance
 from utils import cuda_weight
-from time import time
+# from time import time
+import time
 from scipy.ndimage import binary_dilation
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -589,7 +590,7 @@ class SceneRR(object):
         w0_cloud = self.volume.w0_cloud
         w0_air = self.volume.w0_air
         # outputs
-        start = time()
+        start = time.time()
         dscatter_sizes = cuda.to_device(np.empty(Np, dtype=np.uint8))
         drng_states = cuda.to_device(self.rng_states.copy_to_host())
         self.calc_scatter_sizes[blockspergrid, threadsperblock]\
@@ -598,7 +599,7 @@ class SceneRR(object):
 
         cuda.synchronize()
         if to_print:
-            print("calc_scatter_sizes:",time()-start)
+            print("calc_scatter_sizes:",time.time()-start)
         scatter_sizes = dscatter_sizes.copy_to_host()
         # plt.figure()
         # plt.hist(scatter_sizes[scatter_sizes!=0])
@@ -615,14 +616,14 @@ class SceneRR(object):
         dstarting_points = cuda.to_device(np.zeros((3,Np_nonan), dtype=float_precis))
         dscatter_points = cuda.to_device(np.zeros((3,total_scatter_num), dtype=float_precis))
 
-        start = time()
+        start = time.time()
         self.generate_paths[blockspergrid, threadsperblock] \
             (Np, self.dbeta_zero, beta_air, self.g_cloud, w0_cloud, w0_air, self.dbbox, self.dbbox_size, self.dvoxel_size,
              self.dsun_direction, dstarting_points, dscatter_points, dstarting_inds, dscatter_inds, drng_states)
 
         cuda.synchronize()
         if to_print:
-            print("generate_paths:", time() - start)
+            print("generate_paths:", time.time() - start)
         del(dscatter_inds)
         del(dstarting_inds)
         del(drng_states)
@@ -637,7 +638,7 @@ class SceneRR(object):
         # sorted_inds = np.argsort(scatter_sizes[sorted_inds])
 
 
-        start = time()
+        start = time.time()
         dscatter_inds = cuda.to_device(scatter_inds)
         dsorted_scatter_points = cuda.to_device(np.empty((3,total_scatter_num), dtype=float_precis))
         dsorted_starting_points = cuda.to_device(np.empty((3,Np_nonan), dtype=float_precis))
@@ -659,16 +660,16 @@ class SceneRR(object):
         #     counter += scatter_sizes[index]
         cuda.synchronize()
         if to_print:
-            print("rearanging took",time()-start)
+            print("rearanging took",time.time()-start)
         # scatter_sizes = scatter_sizes[sorted_inds]
         # scatter_inds = np.concatenate([np.array([0]), scatter_sizes])
         # scatter_inds = np.cumsum(scatter_inds)
 
         # dscatter_inds = cuda.to_device(scatter_inds)
         # dscatter_points.copy_to_device(sorted_scatter_points)
-        # start = time()
+        # start = time.time()
         # dstarting_points.copy_to_device(dstarting_points.copy_to_host()[:, sorted_inds])
-        # print("startingpoint took",time()-start )
+        # print("startingpoint took",time.time()-start )
         del(dscatter_inds)
         del(dstarting_points)
         del(dscatter_points)
@@ -700,7 +701,7 @@ class SceneRR(object):
         blockspergrid = self.blockspergrid
         self.dbeta_cloud.copy_to_device(self.volume.beta_cloud)
         self.dI_total.copy_to_device(np.zeros((N_cams, pixels_shape[0], pixels_shape[1]), dtype=float_reg))
-        start = time()
+        start = time.time()
 
         # dpath_contrib = cuda.to_device(np.empty((self.N_cams, self.total_num_of_scatter), dtype=float_reg))
 
@@ -715,7 +716,7 @@ class SceneRR(object):
         I_total = self.dI_total.copy_to_host()
         I_total /= self.Np
         if to_print:
-            print("render_cuda took:",time() - start)
+            print("render_cuda took:",time.time() - start)
         # return I_total
         if I_gt is None:
             # del dpath_contrib
@@ -727,14 +728,14 @@ class SceneRR(object):
         I_dif = (I_total - I_gt).astype(float_reg)
         self.dI_total.copy_to_device(I_dif)
         # dgrad_contrib = cuda.to_device(np.zeros(self.total_num_of_scatter, dtype=float_reg))
-        start = time()
+        start = time.time()
         self.calc_gradient_contribution[blockspergrid, threadsperblock]\
             (cuda_paths[1], self.dpath_contrib, self.dI_total, self.dPs, self.dpixels_shape,cuda_paths[2], self.dgrad_contrib)
 
         cuda.synchronize()
         if to_print:
-            print("calc_gradient_contribution took:",time()-start)
-        start = time()
+            print("calc_gradient_contribution took:",time.time()-start)
+        start = time.time()
         self.render_differentiable_cuda[blockspergrid, threadsperblock]\
             (self.dbeta_cloud, beta_air, g_cloud, w0_cloud, w0_air, self.dbbox, self.dbbox_size, self.dvoxel_size,
                                        N_cams, self.dts, self.dPs, self.dpixels_shape, self.dis_in_medium, *cuda_paths, self.dI_total, self.dpath_contrib,
@@ -742,7 +743,7 @@ class SceneRR(object):
 
         cuda.synchronize()
         if to_print:
-            print("render_differentiable_cuda took:", time() - start)
+            print("render_differentiable_cuda took:", time.time() - start)
         total_grad = self.dtotal_grad.copy_to_host()
 
         total_grad /= (self.Np * N_cams)
@@ -1459,7 +1460,7 @@ class SceneRR_batch(object):
         w0_cloud = self.volume.w0_cloud
         w0_air = self.volume.w0_air
         # outputs
-        start = time()
+        start = time.time()
         dscatter_sizes = cuda.to_device(np.empty(Np, dtype=np.uint8))
         drng_states = cuda.to_device(self.rng_states.copy_to_host())
         self.calc_scatter_sizes[blockspergrid, threadsperblock]\
@@ -1468,7 +1469,7 @@ class SceneRR_batch(object):
 
         cuda.synchronize()
         if to_print:
-            print("calc_scatter_sizes:",time()-start)
+            print("calc_scatter_sizes:",time.time()-start)
         scatter_sizes = dscatter_sizes.copy_to_host()
         # plt.figure()
         # plt.hist(scatter_sizes[scatter_sizes!=0])
@@ -1485,14 +1486,14 @@ class SceneRR_batch(object):
         dstarting_points = cuda.to_device(np.zeros((3,Np_nonan), dtype=float_precis))
         dscatter_points = cuda.to_device(np.zeros((3,total_scatter_num), dtype=float_precis))
 
-        start = time()
+        start = time.time()
         self.generate_paths[blockspergrid, threadsperblock] \
             (Np, self.dbeta_zero, beta_air, self.g_cloud, w0_cloud, w0_air, self.dbbox, self.dbbox_size, self.dvoxel_size,
              self.dsun_direction, dstarting_points, dscatter_points, dstarting_inds, dscatter_inds, drng_states)
 
         cuda.synchronize()
         if to_print:
-            print("generate_paths:", time() - start)
+            print("generate_paths:", time.time() - start)
         del(dscatter_inds)
         del(dstarting_inds)
         del(drng_states)
@@ -1507,7 +1508,7 @@ class SceneRR_batch(object):
         # sorted_inds = np.argsort(scatter_sizes[sorted_inds])
 
 
-        start = time()
+        start = time.time()
         dscatter_inds = cuda.to_device(scatter_inds)
         dsorted_scatter_points = cuda.to_device(np.empty((3,total_scatter_num), dtype=float_precis))
         dsorted_starting_points = cuda.to_device(np.empty((3,Np_nonan), dtype=float_precis))
@@ -1530,16 +1531,16 @@ class SceneRR_batch(object):
         #     counter += scatter_sizes[index]
         cuda.synchronize()
         if to_print:
-            print("rearanging took",time()-start)
+            print("rearanging took",time.time()-start)
         # scatter_sizes = scatter_sizes[sorted_inds]
         # scatter_inds = np.concatenate([np.array([0]), scatter_sizes])
         # scatter_inds = np.cumsum(scatter_inds)
 
         # dscatter_inds = cuda.to_device(scatter_inds)
         # dscatter_points.copy_to_device(sorted_scatter_points)
-        # start = time()
+        # start = time.time()
         # dstarting_points.copy_to_device(dstarting_points.copy_to_host()[:, sorted_inds])
-        # print("startingpoint took",time()-start )
+        # print("startingpoint took",time.time()-start )
         del(dscatter_inds)
         del(dstarting_points)
         del(dscatter_points)
@@ -1571,7 +1572,7 @@ class SceneRR_batch(object):
         blockspergrid = self.blockspergrid
         self.dbeta_cloud.copy_to_device(self.volume.beta_cloud)
         self.dI_total.copy_to_device(np.zeros((N_cams, pixels_shape[0], pixels_shape[1]), dtype=float_reg))
-        start = time()
+        start = time.time()
 
         # dpath_contrib = cuda.to_device(np.empty((self.N_cams, self.total_num_of_scatter), dtype=float_reg))
 
@@ -1586,7 +1587,7 @@ class SceneRR_batch(object):
         I_total = self.dI_total.copy_to_host()
         I_total /= self.Np
         if to_print:
-            print("render_cuda took:",time() - start)
+            print("render_cuda took:",time.time() - start)
         # return I_total
         if I_gt is None:
             # del dpath_contrib
@@ -1598,14 +1599,14 @@ class SceneRR_batch(object):
         I_dif = (I_total - I_gt).astype(float_reg)
         self.dI_total.copy_to_device(I_dif)
         # dgrad_contrib = cuda.to_device(np.zeros(self.total_num_of_scatter, dtype=float_reg))
-        start = time()
+        start = time.time()
         self.calc_gradient_contribution[blockspergrid, threadsperblock]\
             (cuda_paths[1], self.dpath_contrib, self.dI_total, self.dPs, self.dpixels_shape,cuda_paths[2], self.dgrad_contrib)
 
         cuda.synchronize()
         if to_print:
-            print("calc_gradient_contribution took:",time()-start)
-        start = time()
+            print("calc_gradient_contribution took:",time.time()-start)
+        start = time.time()
         self.render_differentiable_cuda[blockspergrid, threadsperblock]\
             (self.dbeta_cloud, beta_air, g_cloud, w0_cloud, w0_air, self.dbbox, self.dbbox_size, self.dvoxel_size,
                                        N_cams, self.dts, self.dPs, self.dpixels_shape, self.dis_in_medium, *cuda_paths, self.dI_total, self.dpath_contrib,
@@ -1613,7 +1614,7 @@ class SceneRR_batch(object):
 
         cuda.synchronize()
         if to_print:
-            print("render_differentiable_cuda took:", time() - start)
+            print("render_differentiable_cuda took:", time.time() - start)
         total_grad = self.dtotal_grad.copy_to_host()
 
         total_grad /= (self.Np / self.N_batches * N_cams)
@@ -2325,7 +2326,7 @@ class LargeDomainSceneRR(object):
         w0_cloud = self.volume.w0_cloud
         w0_air = self.volume.w0_air
         # outputs
-        start = time()
+        start = time.time()
         dscatter_sizes = cuda.to_device(np.empty(Np, dtype=np.uint8))
         drng_states = cuda.to_device(self.rng_states.copy_to_host())
         self.calc_scatter_sizes[blockspergrid, threadsperblock]\
@@ -2334,7 +2335,7 @@ class LargeDomainSceneRR(object):
 
         cuda.synchronize()
         if to_print:
-            print("calc_scatter_sizes:",time()-start)
+            print("calc_scatter_sizes:",time.time()-start)
         scatter_sizes = dscatter_sizes.copy_to_host()
         # plt.figure()
         # plt.hist(scatter_sizes[scatter_sizes!=0])
@@ -2351,14 +2352,14 @@ class LargeDomainSceneRR(object):
         dstarting_points = cuda.to_device(np.zeros((3,Np_nonan), dtype=float_precis))
         dscatter_points = cuda.to_device(np.zeros((3,total_scatter_num), dtype=float_precis))
 
-        start = time()
+        start = time.time()
         self.generate_paths[blockspergrid, threadsperblock] \
             (Np, self.dbeta_zero, beta_air, self.g_cloud, w0_cloud, w0_air, self.dbbox, self.dbbox_size, self.dvoxel_size,
              self.dsun_direction, dstarting_points, dscatter_points, dstarting_inds, dscatter_inds, drng_states)
 
         cuda.synchronize()
         if to_print:
-            print("generate_paths:", time() - start)
+            print("generate_paths:", time.time() - start)
         del(dscatter_inds)
         del(dstarting_inds)
         del(drng_states)
@@ -2373,7 +2374,7 @@ class LargeDomainSceneRR(object):
         # sorted_inds = np.argsort(scatter_sizes[sorted_inds])
 
 
-        start = time()
+        start = time.time()
         dscatter_inds = cuda.to_device(scatter_inds)
         dsorted_scatter_points = cuda.to_device(np.empty((3,total_scatter_num), dtype=float_precis))
         dsorted_starting_points = cuda.to_device(np.empty((3,Np_nonan), dtype=float_precis))
@@ -2395,16 +2396,16 @@ class LargeDomainSceneRR(object):
         #     counter += scatter_sizes[index]
         cuda.synchronize()
         if to_print:
-            print("rearanging took",time()-start)
+            print("rearanging took",time.time()-start)
         # scatter_sizes = scatter_sizes[sorted_inds]
         # scatter_inds = np.concatenate([np.array([0]), scatter_sizes])
         # scatter_inds = np.cumsum(scatter_inds)
 
         # dscatter_inds = cuda.to_device(scatter_inds)
         # dscatter_points.copy_to_device(sorted_scatter_points)
-        # start = time()
+        # start = time.time()
         # dstarting_points.copy_to_device(dstarting_points.copy_to_host()[:, sorted_inds])
-        # print("startingpoint took",time()-start )
+        # print("startingpoint took",time.time()-start )
         del(dscatter_inds)
         del(dstarting_points)
         del(dscatter_points)
@@ -2436,7 +2437,7 @@ class LargeDomainSceneRR(object):
         blockspergrid = self.blockspergrid
         self.dbeta_cloud.copy_to_device(self.volume.beta_cloud)
         self.dI_total.copy_to_device(np.zeros((N_cams, pixels_shape[0], pixels_shape[1]), dtype=float_reg))
-        start = time()
+        start = time.time()
 
         # dpath_contrib = cuda.to_device(np.empty((self.N_cams, self.total_num_of_scatter), dtype=float_reg))
 
@@ -2451,7 +2452,7 @@ class LargeDomainSceneRR(object):
         I_total = self.dI_total.copy_to_host()
         I_total /= self.Np
         if to_print:
-            print("render_cuda took:",time() - start)
+            print("render_cuda took:",time.time() - start)
         # return I_total
         if I_gt is None:
             # del dpath_contrib
@@ -2463,14 +2464,14 @@ class LargeDomainSceneRR(object):
         I_dif = (I_total - I_gt).astype(float_reg)
         self.dI_total.copy_to_device(I_dif)
         # dgrad_contrib = cuda.to_device(np.zeros(self.total_num_of_scatter, dtype=float_reg))
-        start = time()
+        start = time.time()
         self.calc_gradient_contribution[blockspergrid, threadsperblock]\
             (cuda_paths[1], self.dpath_contrib, self.dI_total, self.dPs, self.dpixels_shape,cuda_paths[2], self.dgrad_contrib)
 
         cuda.synchronize()
         if to_print:
-            print("calc_gradient_contribution took:",time()-start)
-        start = time()
+            print("calc_gradient_contribution took:",time.time()-start)
+        start = time.time()
         self.render_differentiable_cuda[blockspergrid, threadsperblock]\
             (self.dbeta_cloud, beta_air, g_cloud, w0_cloud, w0_air, self.dbbox, self.dbbox_size, self.dvoxel_size,
                                        N_cams, self.dts, self.dPs, self.dpixels_shape, self.dis_in_medium, *cuda_paths, self.dI_total, self.dpath_contrib,
@@ -2478,7 +2479,7 @@ class LargeDomainSceneRR(object):
 
         cuda.synchronize()
         if to_print:
-            print("render_differentiable_cuda took:", time() - start)
+            print("render_differentiable_cuda took:", time.time() - start)
         total_grad = self.dtotal_grad.copy_to_host()
 
         total_grad /= (self.Np * N_cams)
@@ -2634,7 +2635,7 @@ class PytorchSceneRR(SceneRR_batch):
         blockspergrid = self.blockspergrid
         self.dbeta_cloud.copy_to_device(self.volume.beta_cloud)
         self.dI_total.copy_to_device(np.zeros((N_cams, pixels_shape[0], pixels_shape[1]), dtype=float_reg))
-        start = time()
+        start = time.time()
 
         # dpath_contrib = cuda.to_device(np.empty((self.N_cams, self.total_num_of_scatter), dtype=float_reg))
 
@@ -2650,7 +2651,7 @@ class PytorchSceneRR(SceneRR_batch):
         I_total = self.dI_total.copy_to_host()
         I_total /= self.Np
         if to_print:
-            print("render_cuda took:",time() - start)
+            print("render_cuda took:",time.time() - start)
         # return I_total
         if I_gt is None:
             # del dpath_contrib
@@ -2662,14 +2663,14 @@ class PytorchSceneRR(SceneRR_batch):
         I_dif = (I_total - I_gt).astype(float_reg)
         self.dI_total.copy_to_device(I_dif)
         # dgrad_contrib = cuda.to_device(np.zeros(self.total_num_of_scatter, dtype=float_reg))
-        start = time()
+        start = time.time()
         self.calc_gradient_contribution[blockspergrid, threadsperblock]\
             (cuda_paths[1], self.dpath_contrib, self.dI_total, self.dPs, self.dpixels_shape,cuda_paths[2], self.dgrad_contrib)
 
         cuda.synchronize()
         if to_print:
-            print("calc_gradient_contribution took:",time()-start)
-        start = time()
+            print("calc_gradient_contribution took:",time.time()-start)
+        start = time.time()
         self.render_differentiable_cuda[blockspergrid, threadsperblock]\
             (self.dbeta_cloud, beta_air, g_cloud, w0_cloud, w0_air, self.dbbox, self.dbbox_size, self.dvoxel_size,
                                        N_cams, self.dts, self.dPs, self.dpixels_shape, self.dis_in_medium, *cuda_paths, self.dI_total, self.dpath_contrib,
@@ -2677,7 +2678,7 @@ class PytorchSceneRR(SceneRR_batch):
 
         cuda.synchronize()
         if to_print:
-            print("render_differentiable_cuda took:", time() - start)
+            print("render_differentiable_cuda took:", time.time() - start)
 
         if to_torch:
             total_grad = torch.as_tensor(self.dtotal_grad, device=self.device)

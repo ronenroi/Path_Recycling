@@ -186,7 +186,7 @@ if __name__ == '__main__':
         grid = Grid(bbox, beta_cloud.shape)
         volume = Volume(grid, beta_cloud, beta_air, w0_cloud, w0_air)
         beta_gt = np.copy(beta_cloud)
-        scene_rr = PytorchSceneRR(volume, cameras, sun_angles, g_cloud, rr_depth, rr_stop_prob, device=device)
+        scene_rr = PytorchSceneRR(volume, cameras, sun_angles, g_cloud, rr_depth, rr_stop_prob,N_batches=1, device=device)
 
         for i in range(N_render_gt):
             cuda_paths = scene_rr.build_paths_list(Np_gt)
