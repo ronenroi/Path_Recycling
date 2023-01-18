@@ -592,8 +592,8 @@ class ArraySummaryWriter(object):
         if isinstance(self.optimizer.loss,list):
             self.tf_writer.add_scalars(kwargs['title'], {
                 kwargs['title']: sum(self.optimizer.loss),
-                'Data term loss': self.optimizer.loss[0],
-                'Regularization term loss': self.optimizer.loss[1],
+                'Data loss': self.optimizer.loss[0],
+                'Entropy loss': self.optimizer.loss[1],
             }
                 , self.optimizer.iteration)
         else:
@@ -1482,7 +1482,7 @@ class OptimizationScript():
                             help='model name')
         parser.add_argument("--N_rand", type=int, default=512,
                             help='batch size (number of random rays per gradient step)')
-        parser.add_argument("--lr", type=float, default=1e-2,
+        parser.add_argument("--lr", type=float, default=1e-4,
                             help='learning rate')
         parser.add_argument("--lr_unc", type=float, default=5e-4,
                             help='learning rate')
@@ -1922,8 +1922,8 @@ class OptimizationScript():
         mc_renderer = MC_renderer().apply
         for epoch in range(self.args.nEpochs):
             model.rand(grid.shape[0])
-
-            for iter in range(400):
+            std = 8e-07
+            for iter in range(25):
                 tic = time.time()
                 NNoptimizer.zero_grad()
                 x, loss_entropy = network_query_fn(grid, model, is_rand=is_rand, is_val=False,
@@ -1944,8 +1944,8 @@ class OptimizationScript():
                 tic = time.time()
                 y = mc_renderer(cloud,torch_measurements,scene_rr,self.Np_gt)
                 print(f'Renderer time {time.time()-tic}')
-
-                loss = error(y)
+                loss_data = error(y)/(std**2)
+                loss = loss_data + loss_entropy
                 # loss = error(torch.squeeze(x), torch.tensor(volume.lwc.data[optimizer.mask.data],dtype=torch.float,device=device))
                 # loss_t += loss
                 # output_np = xx.detach().cpu().numpy()
@@ -1954,15 +1954,15 @@ class OptimizationScript():
                 loss.backward()
                 # for p in model.parameters():
                 #     print(p.grad)
-                NN_loss_list.append(loss.mean().item())
-                optimizer._loss = loss.mean().item()
+                NN_loss_list.append(loss_data.mean().item())
+                optimizer._loss = [loss_data.mean().item(),loss_entropy.mean().item()]
                 optimizer.set_medium_estimator(cloud.detach().cpu().numpy())
                 optimizer._images = scene_rr.I_opt
                 # optimizer._medium.set_state(np.squeeze(cloud.detach().cpu().numpy()))
                 optimizer.callback(None)
                 relative_error_list.append(optimizer.writer.epsilon)
 
-                print('Epoch {}, Iter {}: Image Loss: {} Entropy Loss: {} relative_error: {}'.format(epoch,iter, loss,
+                print('Epoch {}, Iter {}: Image Loss: {} Entropy Loss: {} relative_error: {}'.format(epoch,iter, loss_data,
                                                                                             loss_entropy.item(),
                                                                                             relative_error_list[
                                                                                                 -1]))
@@ -2149,7 +2149,7 @@ class MC_renderer(torch.autograd.Function):
         print("RESAMPLING PATHS ")
         scene_rr.volume.beta_cloud = torch.squeeze(input).detach().cpu().numpy().astype(
             float_reg)
-        scene_rr.init_cuda_param(np, init=True)
+        scene_rr.init_cuda_param(np)
         # cuda_paths = scene_rr.build_paths_list(np)
         scene_rr.build_paths_list(np)
         # I_opt, total_grad = scene_rr.render(cuda_paths, I_gt=measurements.detach().cpu().numpy(), to_torch=True)
