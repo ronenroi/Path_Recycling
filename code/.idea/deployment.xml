@@ -1,7 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="roironen@132.68.58.242:22 (2)" autoUploadExternalChanges="true">
+  <component name="PublishConfigData" autoUpload="Always" serverName="roironen@132.68.58.208:22" autoUploadExternalChanges="true">
     <serverData>
+      <paths name="roironen@132.68.58.208:22">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/wdata/roironen/Deploy/MC_code" local="$PROJECT_DIR$" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/projects/1D_NN_output" />
+            <excludedPath local="true" path="$PROJECT_DIR$/projects/3D_NN_output" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+      <paths name="roironen@132.68.58.211:22 (4)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/wdata/roironen/Deploy/MC_code" local="$PROJECT_DIR$" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/projects/1D_NN_output" />
+            <excludedPath local="true" path="$PROJECT_DIR$/projects/3D_NN_output" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
       <paths name="roironen@132.68.58.242:22 (2)">
         <serverdata>
           <mappings>
@@ -16,5 +38,6 @@
         </serverdata>
       </paths>
     </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>

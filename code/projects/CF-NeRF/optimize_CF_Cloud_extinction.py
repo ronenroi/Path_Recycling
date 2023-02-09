@@ -11,8 +11,10 @@ import torch.nn.functional as F
 
 import shutil
 import os, sys
+import socket
 
 import numpy as np
+
 
 my_lib_path = os.path.abspath('./')
 sys.path.append(my_lib_path)
@@ -33,6 +35,9 @@ from collections import OrderedDict
 from run_nerf_helpers import get_embedder
 import scipy.io as sio
 
+
+DEFAULT_DATA_ROOT = '/wdata/roironen/Deploy/MC_code/projects/CF-NeRF/data/' \
+if not socket.gethostname()=='visl-25u' else '/home/roironen/pytorch3d/projects/CT/data/'
 
 class NNOptimizer(object):
 
@@ -623,7 +628,7 @@ class ArraySummaryWriter(object):
             keyword arguments
         """
 
-        losses_norm = [np.sum((im1 - im2).ravel()**2) ** 0.5 / (im1.max()+1e-9) / im1.size for im1, im2 in zip(kwargs['acquired_images'], self.optimizer.images)]
+        losses_norm = [np.sum((im1 - im2).ravel()**2) ** 0.5 / (im1.max()+1e-12) / im1.size for im1, im2 in zip(kwargs['acquired_images'], self.optimizer.images)]
         for i, loss in enumerate(losses_norm):
             self.tf_writer.add_scalars('loss/normalized loss', {kwargs['title'].format(i): loss}, self.optimizer.iteration)
 
@@ -1280,7 +1285,7 @@ class OptimizationScript():
         #####################
         # construct betas
         self.scatterer_name = scatterer_name
-        self.data_dir = "/home/roironen/pytorch3d/projects/CT/data/CASS_50m_256x256x139_600CCN/lwcs_processed"
+        self.data_dir = DEFAULT_DATA_ROOT + "CASS_50m_256x256x139_600CCN/lwcs_processed"
         self.files = glob.glob(join(self.data_dir, "*.npz"))
         # N_cloud = 110
 
@@ -1544,7 +1549,7 @@ class OptimizationScript():
                             help='downsampling factor to speed up rendering, set 4 or 8 for fast preview')
 
         # training options
-        parser.add_argument("--beta1", type=float, default=0.,
+        parser.add_argument("--beta1", type=float, default=0.01,
                             help='beta for balancing entropy loss and nll loss')
         parser.add_argument("--beta_u", type=float, default=0.1,
                             help='beta_uniformsample for balancing entropy loss and nll loss')
@@ -1649,7 +1654,9 @@ class OptimizationScript():
 
     def get_ground_truth(self):
         # Define the grid for reconstruction
-        beta_cloud = np.load(self.files[8])['lwc'] * 100
+        self.beta_max = 60
+        beta_cloud = np.load(self.files[8])['lwc'] * self.beta_max
+        print(self.files[8])
         beta_cloud = beta_cloud.astype(float_reg)
 
         # Grid parameters #
@@ -1892,7 +1899,7 @@ class OptimizationScript():
         error = nn.Identity()
 
         if self.args.opt == 'sgd':
-            NNoptimizer = optim.SGD(params=grad_vars, lr=self.args.lr)
+            NNoptimizer = optim.SGD(params=grad_vars, lr=self.args.lr,momentum=0.1)
         elif self.args.opt == 'adam':
             NNoptimizer = torch.optim.Adam(params=grad_vars, lr=self.args.lr)
         elif self.args.opt == 'rmsprop':
@@ -1908,8 +1915,8 @@ class OptimizationScript():
         gd_relative_error_convergence = []
         relative_error_list = []
         NN_loss_list = []
-        if os.path.exists(self.args.save):
-            shutil.rmtree(self.args.save)
+        # if os.path.exists(self.args.save):
+        #     shutil.rmtree(self.args.save)
         os.makedirs(self.args.save, exist_ok=True)
         # best_train_eps_convergence = []
 
@@ -1922,7 +1929,8 @@ class OptimizationScript():
         mc_renderer = MC_renderer().apply
         for epoch in range(self.args.nEpochs):
             model.rand(grid.shape[0])
-            std = 8e-07
+            # averaged_variance = torch.mean(4.4444444444444444e-07 * torch_measurements)
+            averaged_variance = 1.6675321e-10
             for iter in range(25):
                 tic = time.time()
                 NNoptimizer.zero_grad()
@@ -1931,12 +1939,13 @@ class OptimizationScript():
 
                 # x = soft(x)
                 # a,b = x.data.sort()
-                # print(a)
-                x = x * 60 + 60
+                print(x.max().item())
+                print(x.min().item())
+                x = (x+2) / 4 * self.beta_max #+ self.beta_max
                 x = torch.squeeze(F.softplus(x))
-                x = torch.clip(x,0,300)
-                print(x.max())
-                print(x.min())
+                x = torch.clip(x,0,100)
+                print(x.max().item())
+                print(x.min().item())
                 cloud = torch.zeros(scene_rr.volume.beta_cloud.shape,device=x.device)
                 cloud[scene_rr.volume.cloud_mask] = x
 
@@ -1944,14 +1953,17 @@ class OptimizationScript():
                 tic = time.time()
                 y = mc_renderer(cloud,torch_measurements,scene_rr,self.Np_gt)
                 print(f'Renderer time {time.time()-tic}')
-                loss_data = error(y)/(std**2)
-                loss = loss_data + loss_entropy
+                loss_data = error(y)/(2*averaged_variance)
+                loss = loss_data + loss_entropy * self.args.beta1
                 # loss = error(torch.squeeze(x), torch.tensor(volume.lwc.data[optimizer.mask.data],dtype=torch.float,device=device))
                 # loss_t += loss
                 # output_np = xx.detach().cpu().numpy()
 
                 # Calculating gradients
-                loss.backward()
+                try:
+                    loss.backward()
+                except:
+                    print()
                 # for p in model.parameters():
                 #     print(p.grad)
                 NN_loss_list.append(loss_data.mean().item())
@@ -2159,6 +2171,7 @@ class MC_renderer(torch.autograd.Function):
         error = nn.MSELoss()
         scene_rr.I_opt = I_opt.detach().cpu().numpy()
         print('Done image consistency loss stage')
+        total_grad[torch.logical_not(torch.isfinite(total_grad))] = 0
         ctx.save_for_backward(torch.squeeze(total_grad))
         loss = error(I_opt,measurements) * (measurements.numel())
         return loss
