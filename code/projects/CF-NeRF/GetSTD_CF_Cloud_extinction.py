@@ -1649,7 +1649,7 @@ class OptimizationScript():
 
     def get_ground_truth(self):
         # Define the grid for reconstruction
-        beta_cloud = np.load(self.files[8])['lwc'] * 100
+        beta_cloud = np.load(self.files[8])['lwc'] * 60
         beta_cloud = beta_cloud.astype(float_reg)
 
         # Grid parameters #

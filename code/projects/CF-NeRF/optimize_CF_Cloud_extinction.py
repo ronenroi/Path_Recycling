@@ -3,6 +3,9 @@ import matplotlib
 import os, time, copy
 import argparse
 
+import torch
+import torchvision.transforms.functional
+
 from model_cloud.models import Cloud_Flows
 
 import torch.optim as optim
@@ -34,10 +37,54 @@ import tensorboardX as tb
 from collections import OrderedDict
 from run_nerf_helpers import get_embedder
 import scipy.io as sio
-
+# from scipy.ndimage import rotate
+from torchvision.transforms.functional import rotate
+import PIL
+import torch.fft
 
 DEFAULT_DATA_ROOT = '/wdata/roironen/Deploy/MC_code/projects/CF-NeRF/data/' \
 if not socket.gethostname()=='visl-25u' else '/home/roironen/pytorch3d/projects/CT/data/'
+
+def plot_hists_height(gt, cloud_list, mask):
+    # mask = gt > 0
+    mask_nan = np.reshape(mask, (-1, mask.shape[-1])).sum(0) * 1.0
+    mask_nan[mask_nan == 0] = np.nan
+    mask_nan /= mask_nan
+    mask_nan *= np.arange(mask_nan.shape[0])
+    z_min_i = np.nanargmin(mask_nan)
+    z_max_i = np.nanargmax(mask_nan)
+    e = [(c - gt) for c in cloud_list]
+    e = np.array(e)
+    e_nan = np.array(e)
+    e_nan[:, mask==0] = None
+    e_nan = e_nan.reshape((e.shape[0], -1, e.shape[-1]))
+    e_nan = e_nan[:, :, z_min_i:z_max_i]
+    voxel_mean = np.nanmean(e_nan, 0)
+    voxel_std = np.nanstd(e_nan, 0)
+
+    z = np.arange(z_min_i, z_max_i) * 0.04
+    gradient = np.linspace(0, 1, len(z))
+    fig, axs = plt.subplots(1, 3)
+    for ax in axs:
+        ax.set_box_aspect(1)
+    fig_c, axs_c = plt.subplots(1, 3)
+    for ax in axs_c:
+        ax.set_box_aspect(1)
+
+    axs[0].hist(voxel_mean.reshape(-1), 30)
+    axs_c[0].hist(voxel_mean, 30, density=True, histtype='bar', stacked=True, label=z, color=plt.cm.jet(gradient))
+
+    axs[1].hist(voxel_std.reshape(-1), 30)
+    axs_c[1].hist(voxel_std, 30, density=True, histtype='bar', stacked=True, color=plt.cm.jet(gradient))
+
+    norm = voxel_std / voxel_mean
+    norm[np.abs(norm) > 30] = 30
+    axs[2].hist(norm.reshape(-1), 30)
+    axs_c[2].hist(norm, 30, density=True, histtype='bar', stacked=True, color=plt.cm.jet(gradient))
+
+    fig_c.legend()
+    plt.show()
+
 
 class NNOptimizer(object):
 
@@ -1487,7 +1534,7 @@ class OptimizationScript():
                             help='model name')
         parser.add_argument("--N_rand", type=int, default=512,
                             help='batch size (number of random rays per gradient step)')
-        parser.add_argument("--lr", type=float, default=1e-4,
+        parser.add_argument("--lr", type=float, default=1e-3,
                             help='learning rate')
         parser.add_argument("--lr_unc", type=float, default=5e-4,
                             help='learning rate')
@@ -1549,11 +1596,11 @@ class OptimizationScript():
                             help='downsampling factor to speed up rendering, set 4 or 8 for fast preview')
 
         # training options
-        parser.add_argument("--beta1", type=float, default=0.01,
+        parser.add_argument("--beta1", type=float, default=0.000,
                             help='beta for balancing entropy loss and nll loss')
         parser.add_argument("--beta_u", type=float, default=0.1,
                             help='beta_uniformsample for balancing entropy loss and nll loss')
-        parser.add_argument("--beta_p", type=float, default=0.05,
+        parser.add_argument("--beta_p", type=float, default=0,
                             help='beta_prior for balancing entropy loss and nll loss')
         parser.add_argument("--precrop_iters", type=int, default=0,
                             help='number of steps to train on central crops')
@@ -1747,6 +1794,36 @@ class OptimizationScript():
 
         return outputs, loss_entropy
 
+    def to_PS(self, cloud):
+        return torch.abs(torch.fft.fftn(cloud/self.beta_max,dim=[1,2,3]) ) ** 2
+
+    def calc_prior(self, power3):
+        if len(power3.shape)==3:
+            power3 = power3[None]
+        nb,nx,ny,nz = power3.shape
+        x0 = np.floor(nx/2).astype(int)
+        angles = torch.arange(180)
+        avg_power3 = 0
+        power3 = power3.permute(0,3,1,2)
+
+        for ang in angles:
+            # avg_power3.append(torch.rotate(power3, ang, reshape=False))
+            rotated = rotate(power3,float(ang),resample=PIL.Image.BILINEAR).permute(0,2,3,1)[:,x0]
+            avg_power3 += rotated
+        avg_power3 /= angles.shape[0]
+        # avg_power3 = torch.stack(avg_power3)
+        # power3_rotated = torch.squeeze(torch.mean(avg_power3[:,:,0], 1))
+        log_avg_ps3 = torch.log(avg_power3)
+
+        return log_avg_ps3
+
+    def get_prior(self):
+        power3 = sio.loadmat('/home/roironen/Path_Recycling/code/projects/CF-NeRF/lwc_PS.mat')['power3']
+        # power3 = np.mean(power3,0)
+        power3 = self.calc_prior(torch.tensor(power3,device=self.args.device))
+        plt.imshow(power3[0].detach().cpu())
+        plt.show()
+        return power3
 
     def get_measurements(self, volume):
         #######################
@@ -1783,7 +1860,7 @@ class OptimizationScript():
         cameras.append(Camera(t, euler_angles, cameras[0].focal_length, cameras[0].sensor_size, cameras[0].pixels))
         # Simulation parameters
         N_render_gt = 1
-        self.Np_gt = int(1e8)
+        self.Np_gt = int(5e7)
         ########################
         # Atmosphere parameters#
         ########################
@@ -1793,7 +1870,12 @@ class OptimizationScript():
         rr_stop_prob = 0.05
         scene_rr = PytorchSceneSeed(volume, cameras, sun_angles, g_cloud, rr_depth, rr_stop_prob,N_batches=N_render_gt, device=self.args.device)
         scene_rr.upscale_cameras(ps_max)
-        scene_rr.set_cloud_mask(volume.cloud_mask)
+        mask = volume.cloud_mask
+        if False:
+            from scipy.ndimage import morphology
+            mask = morphology.binary_dilation(mask,iterations=1)
+
+        scene_rr.set_cloud_mask(mask)
 
         # scene_rr = PytorchSceneRR(volume, cameras, sun_angles, g_cloud, rr_depth, rr_stop_prob,N_batches=1, device=self.args.device)
         scene_rr.init_cuda_param(self.Np_gt, init=True)
@@ -1853,27 +1935,37 @@ class OptimizationScript():
         self.args.embed_fn, self.args.input_ch = get_embedder(self.args.multires, self.args.i_embed)
         self.args.skips = [self.args.netdepth / 2]
         self.args.device = device
+        prior = self.get_prior()
         volume = self.get_ground_truth()
         scene_rr, I_gt = self.get_measurements(volume)
         local_optimizer = self.get_NNoptimizer(volume, I_gt)
         if self.args.only_test:
-            self.test(local_optimizer, scene_rr, I_gt)
+            self.test(local_optimizer, scene_rr, I_gt, prior)
 
         else:
-            self.train(local_optimizer,  scene_rr, I_gt)
+            self.train(local_optimizer,  scene_rr, I_gt, prior)
         # Save optimizer state
         # save_dir =  self.args.input_dir
         # local_optimizer.save_state(os.path.join(save_dir, 'final_state.ckpt'))
 
 
-    def train(self, optimizer,  scene_rr, measurements):
+    def train(self, optimizer,  scene_rr, measurements, prior=None):
+        if prior is not None:
+            prior = prior.float()
         torch_measurements = torch.tensor(measurements,device=self.args.device)
         model = Cloud_Flows(self.args).to(self.args.device)
         # model = nn.DataParallel(model).to(device)
-        # if not self.args.no_reload:
-        #     ckpt_path = os.path.join(self.args.ft_path)
-        #     print('Reloading from', ckpt_path)
-        #     ckpt = torch.load(ckpt_path)
+        if self.args.ft_path is not None:
+            ckpt_path = os.path.join(self.args.ft_path)
+            print('Reloading from', ckpt_path)
+            ckpt = torch.load(ckpt_path)
+            pretrained_dict = ckpt['network_fn_state_dict']
+            model_dict = model.state_dict()
+            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+            # 2. overwrite entries in the existing state dict
+            model_dict.update(pretrained_dict)
+            # 3. load the new state dict
+            model.load_state_dict(model_dict)
         grad_vars = list(model.parameters())
         network_query_fn = lambda inputs, network_fn, is_rand,is_val,  is_test: self.run_network(inputs,
                                                                                              network_fn, is_rand,is_val,
@@ -1924,6 +2016,8 @@ class OptimizationScript():
         print("===========Training===========")
         global is_rand
         is_rand = False
+        p_x = nn.MSELoss()
+
         # soft = torch.nn.Softplus(1)
         # est_volume = Volume(volume.grid, np.zeros_like(volume.beta_cloud), volume.beta_air, volume.w0_cloud, volume.w0_air)
         mc_renderer = MC_renderer().apply
@@ -1931,7 +2025,7 @@ class OptimizationScript():
             model.rand(grid.shape[0])
             # averaged_variance = torch.mean(4.4444444444444444e-07 * torch_measurements)
             averaged_variance = 1.6675321e-10
-            for iter in range(25):
+            for iter in range(50):
                 tic = time.time()
                 NNoptimizer.zero_grad()
                 x, loss_entropy = network_query_fn(grid, model, is_rand=is_rand, is_val=False,
@@ -1952,9 +2046,20 @@ class OptimizationScript():
                 print(f'NN time {time.time()-tic}')
                 tic = time.time()
                 y = mc_renderer(cloud,torch_measurements,scene_rr,self.Np_gt)
+                if self.args.beta_p>0:
+                    cloudPS = self.to_PS(cloud[None])
+                    cloudPS = self.calc_prior(cloudPS)
+                    if iter % 24==0:
+                        plt.imshow(cloudPS[0].detach().cpu())
+                        plt.colorbar()
+                        plt.show()
+                    loss_px = p_x(cloudPS,prior)
+                else:
+                    loss_px = torch.tensor(0)
                 print(f'Renderer time {time.time()-tic}')
                 loss_data = error(y)/(2*averaged_variance)
-                loss = loss_data + loss_entropy * self.args.beta1
+                loss = loss_data + loss_entropy * self.args.beta1 + loss_px* self.args.beta_p
+                ####################### weighted LS prior loss cy PS std
                 # loss = error(torch.squeeze(x), torch.tensor(volume.lwc.data[optimizer.mask.data],dtype=torch.float,device=device))
                 # loss_t += loss
                 # output_np = xx.detach().cpu().numpy()
@@ -1974,13 +2079,13 @@ class OptimizationScript():
                 optimizer.callback(None)
                 relative_error_list.append(optimizer.writer.epsilon)
 
-                print('Epoch {}, Iter {}: Image Loss: {} Entropy Loss: {} relative_error: {}'.format(epoch,iter, loss_data,
-                                                                                            loss_entropy.item(),
+                print('Epoch {}, Iter {}: Image Loss: {} Entropy Loss: {} Prior Loss: {} relative_error: {}'.format(epoch,iter, loss_data,
+                                                                                            loss_entropy.item(),loss_px.item(),
                                                                                             relative_error_list[
                                                                                                 -1]))
                 NNoptimizer.step()
 
-            if epoch % 5 == 0:
+            if epoch % 25 == 0:
                 path = os.path.join(optimizer.writer.dir,
                                     '{}.tar'.format(optimizer.iteration))
 
@@ -1991,7 +2096,9 @@ class OptimizationScript():
                 }, path)
                 print('Saved checkpoints at', path)
 
-    def test(self, optimizer,  scene_rr, measurements):
+    def test(self, optimizer,  scene_rr, measurements, prior=None):
+        if prior is not None:
+            prior = prior.float()
         torch_measurements = torch.tensor(measurements,device=self.args.device)
         model = Cloud_Flows(self.args).to(self.args.device)
         # model = nn.DataParallel(model).to(device)
@@ -2041,6 +2148,8 @@ class OptimizationScript():
         print("===========Testing===========")
         global is_rand
         is_rand = False
+        p_x = nn.MSELoss()
+
         soft = torch.nn.Softplus(1)
         # est_volume = Volume(volume.grid, np.zeros_like(volume.beta_cloud), volume.beta_air, volume.w0_cloud, volume.w0_air)
         mc_renderer = MC_renderer().apply
@@ -2053,9 +2162,9 @@ class OptimizationScript():
             x, loss_entropy = network_query_fn(grid, model, is_rand=is_rand, is_val=False,
                                                    is_test=is_test)  # alpha_mean.shape (B,N,1)
 
-            x = x * 60 + 60
+            x = (x + 2) / 4 * self.beta_max  # + self.beta_max
             x = torch.squeeze(F.softplus(x))
-            x = torch.clip(x, 0, 300)
+            x = torch.clip(x, 0, 100)
 
             cloud = torch.zeros(scene_rr.volume.beta_cloud.shape,device=x.device)
             cloud[scene_rr.volume.cloud_mask] = x
@@ -2063,7 +2172,16 @@ class OptimizationScript():
 
 
             y = mc_renderer(cloud,torch_measurements,scene_rr,int(self.Np_gt))
-
+            if self.args.beta_p > 0:
+                cloudPS = self.to_PS(cloud[None])
+                cloudPS = self.calc_prior(cloudPS)
+                if iter % 24 == 0:
+                    plt.imshow(cloudPS[0].detach().cpu())
+                    plt.colorbar()
+                    plt.show()
+                loss_px = p_x(cloudPS, prior)
+            else:
+                loss_px = torch.tensor(0)
             loss = error(y)
             # loss = error(torch.squeeze(x), torch.tensor(volume.lwc.data[optimizer.mask.data],dtype=torch.float,device=device))
             # loss_t += loss
@@ -2081,8 +2199,9 @@ class OptimizationScript():
             optimizer.callback(None)
             relative_error_list.append(optimizer.writer.epsilon)
 
-            print('Cloud #{}: Image Loss: {} Entropy Loss: {} relative_error: {}'.format(iter, loss,
+            print('Cloud #{}: Image Loss: {} Entropy Loss: {} Prior Loss {} relative_error: {}'.format(iter, loss,
                                                                                         loss_entropy.item(),
+                                                                                       loss_px.item(),
                                                                                         relative_error_list[
                                                                                             -1]))
 
@@ -2092,14 +2211,24 @@ class OptimizationScript():
                             'results.np')
         np.save(path,{'est_clouds':cloud_list,'gt_clouds':optimizer.writer._ground_truth['cloud'],'loss':NN_loss_list,'images':images})
         gt = optimizer.writer._ground_truth['cloud']
-        e = [(c-gt)[gt>0] for c in cloud_list]
-        e = np.array(e)
-        voxel_std = np.std(e,0)
-        voxel_mean = np.mean(e, 0)
-        plt.hist(voxel_std, 30)
-        plt.show()
-        plt.hist(voxel_mean, 30)
-        plt.show()
+
+        mask  = gt>0
+        mask  = np.copy(scene_rr.volume.cloud_mask)
+
+        plot_hists_height(gt, cloud_list, mask)
+
+        # e = [(c-gt)[mask] for c in cloud_list]
+        # e = np.array(e)
+        # voxel_std = np.std(e,0)
+        # voxel_mean = np.mean(e, 0)
+        # plt.hist(voxel_std, 30)
+        # plt.show()
+        # plt.hist(voxel_mean, 30)
+        # plt.show()
+        # norm = voxel_std/voxel_mean
+        # norm[np.abs(norm)>10] = 10
+        # plt.hist(norm[norm<10], 30)
+        # plt.show()
 
         # fig2, ax2 = plt.subplots(nrows=1, ncols=1)  # two axes on figure
         # ax2.set_aspect('equal', adjustable='box')
@@ -2107,46 +2236,52 @@ class OptimizationScript():
             ["red", "green", "blue", "yellow", "pink", "black", "orange", "purple", "beige", "brown", "gray", "cyan",
              "magenta"])
 
-        gt_flat = gt[gt > 0]
+        gt_flat = gt[mask]
         i = np.random.permutation(gt_flat.size)[:len(colors)]
         for c in cloud_list:
-            c = c[gt>0]
+            c = c[mask]
             plt.scatter(gt_flat[i], c[i],c=colors)
-        plt.plot([0, 100], [0, 100], c='r', ls='--')
+        plt.plot([0, 60], [0, 60], c='r', ls='--')
         plt.xlabel('GT')
         plt.ylabel('Estimated')
         plt.show()
 
         i = np.random.permutation(gt_flat.size)[:len(colors)]
-        e = [c[gt>0] for c in cloud_list]
+        e = [c[mask] for c in cloud_list]
         e = np.array(e)
         voxel_std = np.std(e,0)
         voxel_mean = np.mean(e, 0)
         plt.errorbar(gt_flat[i], voxel_mean[i], yerr=voxel_std[i], fmt="o", ecolor=colors)
         plt.scatter(gt_flat[i], voxel_mean[i], c=colors)
 
-        plt.plot([0, 100], [0, 100], c='r', ls='--')
+        plt.plot([0, 30], [0, 30], c='r', ls='--')
         plt.xlabel('GT')
         plt.ylabel('Estimated')
         plt.show()
 
-        i = np.random.permutation(gt_flat.size)[:50]
+        i = np.random.permutation(gt_flat.size)[:100]
 
-        e = [c[gt > 0] for c in cloud_list]
+        e = [c[mask] for c in cloud_list]
         e = np.array(e)
         voxel_std = np.std(e, 0)
         voxel_mean = np.mean(e, 0)
         plt.errorbar(gt_flat[i], voxel_mean[i], yerr=voxel_std[i], fmt="o")
         plt.scatter(gt_flat[i], voxel_mean[i])
 
-        plt.plot([0, 100], [0, 100], c='r', ls='--')
+        plt.plot([0, 60], [0, 60], c='r', ls='--')
         plt.xlabel('GT')
         plt.ylabel('Estimated')
         plt.show()
 
-        plt.plot(gt[gt>0],voxel_std,'o')
+        plt.plot(gt[mask],voxel_std,'o')
+        plt.xlabel('GT voxel')
+        plt.ylabel('Estimated voxel std')
         plt.show()
 
+        plt.plot(voxel_mean,voxel_std,'o')
+        plt.xlabel('Estimated voxel mean')
+        plt.ylabel('Estimated voxel std')
+        plt.show()
 
 
 class MC_renderer(torch.autograd.Function):
@@ -2188,6 +2323,8 @@ class MC_renderer(torch.autograd.Function):
         gradient, = ctx.saved_tensors
         # print(gradient.shape)
         return gradient * grad_output.clone(), None, None, None
+
+
 
 
 if __name__ == "__main__":
